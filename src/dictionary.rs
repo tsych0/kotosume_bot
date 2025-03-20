@@ -1,19 +1,48 @@
+use crate::embeddings::get_vocabulary;
 use merriam_webster_http::MerriamWebsterClient;
 use moka::future::Cache;
+use rand::prelude::{IndexedRandom, IteratorRandom};
+use rand::rng;
 use std::env;
+use std::fmt::{Display, Formatter};
 use std::sync::OnceLock;
 
 #[derive(Clone)]
 pub struct WordInfo {
-    word: String,
-    stems: Vec<String>,
-    defs: Vec<Def>,
+    pub word: String,
+    pub stems: Vec<String>,
+    pub defs: Vec<Def>,
+}
+
+impl Display for WordInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Word: {}", self.word)?;
+        writeln!(f, "Stems: {}", self.stems.join(", "))?;
+        writeln!(
+            f,
+            "Definitions: \n {}",
+            self.defs
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
 }
 
 #[derive(Clone)]
 pub struct Def {
-    definitions: Vec<String>,
-    functional_label: String,
+    pub definitions: Vec<String>,
+    pub functional_label: String,
+}
+
+impl Display for Def {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for d in &self.definitions {
+            writeln!(f, "({}): {}", self.functional_label, d)?;
+        }
+        Ok(())
+    }
 }
 
 const CACHE_SIZE: u64 = 10_000;
@@ -37,7 +66,31 @@ fn get_client() -> &'static MerriamWebsterClient {
     CLIENT.get_or_init(|| init_client())
 }
 
-async fn get_word_details(word: &str) -> Result<WordInfo, String> {
+pub async fn get_random_word() -> Result<WordInfo, String> {
+    let vocab = get_vocabulary();
+    let client = get_client();
+    let word = client
+        .top_words()
+        .await
+        .map_err(|_| "cannot get top words")
+        .and_then(|w| {
+            w.data
+                .words
+                .iter()
+                .cloned()
+                .choose(&mut rng())
+                .ok_or("cannot choose word")
+        })
+        .or_else(|_| {
+            vocab
+                .choose(&mut rng())
+                .map(|x| x.clone())
+                .ok_or("cannot choose word")
+        })?;
+    get_word_details(&word).await
+}
+
+pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
     let cache = get_cache();
     if cache.contains_key(word) {
         return cache
@@ -51,7 +104,7 @@ async fn get_word_details(word: &str) -> Result<WordInfo, String> {
     let def = client
         .collegiate_definition(word.into())
         .await
-        .map_err(|e| format!("No definition found for {word}"))?;
+        .map_err(|_| format!("No definition found for {word}"))?;
 
     let defs = def
         .iter()

@@ -1,4 +1,12 @@
 use crate::command::Command;
+use crate::games::alphabet_sprint::start_alphabet_sprint;
+use crate::games::forbidden_letters::start_forbidden_letters;
+use crate::games::rhyme_time::start_rhyme_time;
+use crate::games::scrambled::start_last_letter_scramble;
+use crate::games::synonym_string::start_synonym_string;
+use crate::games::word_chain::start_word_chain;
+use crate::games::word_ladder::start_word_ladder;
+use crate::state::MyDialogue;
 use teloxide::payloads::SendMessageSetters;
 use teloxide::prelude::{CallbackQuery, Message, Requester, ResponseResult};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me};
@@ -30,27 +38,29 @@ pub async fn message_handler(bot: Bot, msg: Message, me: Me) -> ResponseResult<(
 }
 
 // Handler for callback queries (when a game is selected)
-pub async fn callback_handler(bot: Bot, q: CallbackQuery) -> ResponseResult<()> {
+pub async fn callback_handler(
+    bot: Bot,
+    q: CallbackQuery,
+    dialogue: MyDialogue,
+) -> ResponseResult<()> {
     if let Some(ref game) = q.data {
-        let response = match game.as_str() {
-            "word_chain" => "You selected Word Chain! Let’s start linking words.",
-            "alphabet_sprint" => "Alphabet Sprint time! Ready to race through the letters?",
-            "rhyme_time" => "Rhyme Time begins! Get those rhymes flowing.",
-            "last_letter" => "Last Letter Scramble! Let’s twist those endings.",
-            "synonym_string" => "Synonym String starts now! Link those meanings.",
-            "word_ladder" => "Word Length Ladder! Climb up the word sizes.",
-            "forbidden_letters" => "Forbidden Letters! Avoid the banned ones.",
-            _ => "Unknown game selected!",
-        };
-
         log::info!("You chose {game}");
 
+        bot.answer_callback_query(&q.id).await?;
         if let Some(Message { id, chat, .. }) = q.regular_message() {
-            bot.send_message(chat.id, response).await?;
+            match game.as_str() {
+                "word_chain" => start_word_chain(chat.id, bot, dialogue).await,
+                "alphabet_sprint" => start_alphabet_sprint(chat.id, bot, dialogue).await,
+                "rhyme_time" => start_rhyme_time(chat.id, bot, dialogue).await,
+                "last_letter" => start_last_letter_scramble(chat.id, bot, dialogue).await,
+                "synonym_string" => start_synonym_string(chat.id, bot, dialogue).await,
+                "word_ladder" => start_word_ladder(chat.id, bot, dialogue).await,
+                "forbidden_letters" => start_forbidden_letters(chat.id, bot, dialogue).await,
+                _ => Ok(()),
+            }?;
         }
     }
 
-    bot.answer_callback_query(&q.id).await?;
     Ok(())
 }
 

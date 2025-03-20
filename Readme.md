@@ -1,4 +1,4 @@
-# Wordplay Bot
+# Kotosume Bot
 
 A Telegram chatbot that brings fun and challenging word games to your fingertips! Test your vocabulary, speed, and creativity with a variety of linguistic puzzles.
 

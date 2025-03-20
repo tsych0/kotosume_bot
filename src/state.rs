@@ -1,19 +1,37 @@
+use crate::dictionary::WordInfo;
 use teloxide::dispatching::dialogue::InMemStorage;
 use teloxide::prelude::Dialogue;
-use crate::dictionary::WordInfo;
 
-type MyDialogue = Dialogue<State, InMemStorage<State>>;
-type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+pub type MyDialogue = Dialogue<State, InMemStorage<State>>;
+pub type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Clone, Default)]
 pub enum State {
     #[default]
     Start,
-    WordChain(Vec<WordInfo>),
-    AlphabetSprint(Vec<WordInfo>),
-    RhymeTime(Vec<WordInfo>),
-    LastLetterScramble(Vec<WordInfo>),
-    SynonymString(Vec<WordInfo>),
-    WordLengthLadder(Vec<WordInfo>),
-    ForbiddenLetters(Vec<WordInfo>),
+    WordChain {
+        chain: Vec<WordInfo>,
+    },
+    AlphabetSprint {
+        alphabet: Vec<String>,
+        words: Vec<WordInfo>,
+    },
+    RhymeTime {
+        chain: Vec<WordInfo>,
+    },
+    LastLetterScramble {
+        level: u8,
+        chain: Vec<WordInfo>,
+    },
+    SynonymString {
+        chain: Vec<WordInfo>,
+    },
+    WordLengthLadder {
+        max_len: u8,
+        chain: Vec<WordInfo>,
+    },
+    ForbiddenLetters {
+        forbidden_letters: Vec<char>,
+        chain: Vec<WordInfo>,
+    },
 }

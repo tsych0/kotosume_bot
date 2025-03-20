@@ -5,10 +5,13 @@ mod games;
 mod handler;
 mod state;
 
+use crate::state::State;
 use std::error::Error;
+use teloxide::dispatching::dialogue::InMemStorage;
 use teloxide::types::{MaybeInaccessibleMessage, Me};
 use teloxide::utils::command::BotCommands;
 use teloxide::{prelude::*, types::InlineKeyboardButton, types::InlineKeyboardMarkup};
+use crate::games::word_chain::word_chain;
 
 // Main bot setup with both message and callback handlers
 #[tokio::main]
@@ -21,10 +24,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let bot = Bot::from_env();
 
     let handler = dptree::entry()
-        .branch(Update::filter_message().endpoint(handler::message_handler))
+        .branch(Update::filter_message()
+            .enter_dialogue::<Message, InMemStorage<State>, State>()
+            .branch(dptree::case![State::Start].endpoint(handler::message_handler))
+            .branch(dptree::case![State::WordChain { chain }].endpoint(word_chain))
+        )
         .branch(Update::filter_callback_query().endpoint(handler::callback_handler));
 
     Dispatcher::builder(bot, handler)
+        .dependencies(dptree::deps![InMemStorage::<State>::new()])
         .enable_ctrlc_handler()
         .build()
         .dispatch()

@@ -29,7 +29,12 @@ pub fn is_valid_word(word: &str) -> bool {
     get_embeddings().contains_key(word)
 }
 
-pub fn get_similar_word<P>(word: &str, predicate: P) -> String
+pub fn get_vocabulary() -> Vec<String> {
+    let embeddings = get_embeddings();
+    embeddings.keys().cloned().collect()
+}
+
+pub fn get_similar_or_opposite_word<P>(word: &str, predicate: P, reverse: bool) -> String
 where
     P: Fn(&str) -> bool,
 {
@@ -40,7 +45,13 @@ where
         .collect::<Vec<&String>>()
         .into_iter()
         .map(|x| (similarity(word, x), x))
-        .max_by(|x, y| x.0.partial_cmp(&y.0).unwrap())
+        .max_by(|x, y| {
+            if reverse {
+                x.0.partial_cmp(&y.0).unwrap().reverse()
+            } else {
+                x.0.partial_cmp(&y.0).unwrap()
+            }
+        })
         .unwrap()
         .1
         .to_string()
