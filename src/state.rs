@@ -13,7 +13,7 @@ pub enum State {
         chain: Vec<WordInfo>,
     },
     AlphabetSprint {
-        alphabet: Vec<String>,
+        alphabet: char,
         words: Vec<WordInfo>,
     },
     RhymeTime {

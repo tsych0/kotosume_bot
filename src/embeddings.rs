@@ -34,7 +34,7 @@ pub fn get_vocabulary() -> Vec<String> {
     embeddings.keys().cloned().collect()
 }
 
-pub fn get_similar_or_opposite_word<P>(word: &str, predicate: P, reverse: bool) -> String
+pub fn get_similar_word<P>(word: &str, predicate: P) -> String
 where
     P: Fn(&str) -> bool,
 {
@@ -46,11 +46,7 @@ where
         .into_iter()
         .map(|x| (similarity(word, x), x))
         .max_by(|x, y| {
-            if reverse {
-                x.0.partial_cmp(&y.0).unwrap().reverse()
-            } else {
                 x.0.partial_cmp(&y.0).unwrap()
-            }
         })
         .unwrap()
         .1

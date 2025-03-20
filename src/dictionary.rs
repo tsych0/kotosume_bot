@@ -1,13 +1,16 @@
-use crate::embeddings::get_vocabulary;
+use crate::embeddings::{get_vocabulary, is_valid_word};
+use bincode::{Decode, Encode};
 use merriam_webster_http::MerriamWebsterClient;
 use moka::future::Cache;
 use rand::prelude::{IndexedRandom, IteratorRandom};
 use rand::rng;
 use std::env;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::sync::OnceLock;
 
-#[derive(Clone)]
+#[derive(Encode, Decode, Clone)]
 pub struct WordInfo {
     pub word: String,
     pub stems: Vec<String>,
@@ -17,7 +20,6 @@ pub struct WordInfo {
 impl Display for WordInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Word: {}", self.word)?;
-        writeln!(f, "Stems: {}", self.stems.join(", "))?;
         writeln!(
             f,
             "Definitions: \n {}",
@@ -30,7 +32,7 @@ impl Display for WordInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Encode, Decode, Clone)]
 pub struct Def {
     pub definitions: Vec<String>,
     pub functional_label: String,
@@ -45,16 +47,36 @@ impl Display for Def {
     }
 }
 
-const CACHE_SIZE: u64 = 10_000;
+const CACHE_SIZE: u64 = 30_000;
+const CACHE_PATH: &str = "cache.bin";
 static CACHE: OnceLock<Cache<String, WordInfo>> = OnceLock::new();
 static CLIENT: OnceLock<MerriamWebsterClient> = OnceLock::new();
 
-fn init_cache(size: u64) -> Cache<String, WordInfo> {
-    Cache::new(size)
+#[derive(Encode, Decode)]
+struct CacheEntry {
+    key: String,
+    value: WordInfo,
 }
 
-fn get_cache() -> &'static Cache<String, WordInfo> {
-    CACHE.get_or_init(|| init_cache(CACHE_SIZE))
+pub async fn init_cache() {
+    let cache: Cache<String, WordInfo> = Cache::new(CACHE_SIZE);
+
+    if let Ok(file) = File::open(CACHE_PATH) {
+        let reader = BufReader::new(file);
+        let entries_result: Result<Vec<CacheEntry>, _> =
+            bincode::decode_from_reader(reader, bincode::config::standard());
+        if let Ok(entries) = entries_result {
+            for entry in entries {
+                cache.insert(entry.key, entry.value).await;
+            }
+        }
+    }
+
+    let _ = CACHE.set(cache);
+}
+
+pub fn get_cache() -> &'static Cache<String, WordInfo> {
+    CACHE.get().unwrap()
 }
 
 fn init_client() -> MerriamWebsterClient {
@@ -68,25 +90,11 @@ fn get_client() -> &'static MerriamWebsterClient {
 
 pub async fn get_random_word() -> Result<WordInfo, String> {
     let vocab = get_vocabulary();
-    let client = get_client();
-    let word = client
-        .top_words()
-        .await
-        .map_err(|_| "cannot get top words")
-        .and_then(|w| {
-            w.data
-                .words
-                .iter()
-                .cloned()
-                .choose(&mut rng())
-                .ok_or("cannot choose word")
-        })
-        .or_else(|_| {
-            vocab
-                .choose(&mut rng())
-                .map(|x| x.clone())
-                .ok_or("cannot choose word")
-        })?;
+    let word = vocab
+        .choose(&mut rng())
+        .map(|x| x.clone())
+        .ok_or("cannot choose word")?;
+    println!("getting word details of word {}", word);
     get_word_details(&word).await
 }
 
@@ -98,6 +106,10 @@ pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
             .await
             .clone()
             .ok_or("word not found in cache".into());
+    }
+
+    if !is_valid_word(word) {
+        return Err(format!("{} is not in our wordlist.", word).into());
     }
 
     let client = get_client();
@@ -133,4 +145,18 @@ pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
     cache.insert(word.into(), word_info.clone()).await;
 
     Ok(word_info)
+}
+
+pub fn save_cache(cache: &'static Cache<String, WordInfo>, file_path: &str) -> std::io::Result<()> {
+    let file = File::create(file_path)?;
+    let mut writer = BufWriter::new(file);
+    let data = cache
+        .iter()
+        .map(|(k, v)| CacheEntry {
+            key: k.to_string(),
+            value: v.clone(),
+        })
+        .collect::<Vec<_>>();
+    bincode::encode_into_std_write(&data, &mut writer, bincode::config::standard()).unwrap();
+    Ok(())
 }
