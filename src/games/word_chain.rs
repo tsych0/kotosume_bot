@@ -1,4 +1,5 @@
 use crate::command::Command;
+use crate::contains_any;
 use crate::dictionary::{get_random_word, get_word_details, WordInfo};
 use crate::embeddings::get_similar_word;
 use crate::state::MyDialogue;
@@ -8,7 +9,6 @@ use teloxide::prelude::*;
 use teloxide::types::{Me, Message};
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
-use crate::contains_any;
 
 pub async fn start_word_chain(
     chat_id: ChatId,
@@ -22,7 +22,7 @@ pub async fn start_word_chain(
     .await?;
 
     loop {
-        if let Ok(word) = get_random_word().await {
+        if let Ok(word) = get_random_word(|_| true).await {
             bot.send_message(chat_id, format!("First word: {}", word.word))
                 .await?;
             word.send_message(&bot, chat_id, 0).await?;
@@ -94,7 +94,6 @@ async fn game(
             .map(|x| x.stems.clone())
             .flatten()
             .collect::<Vec<String>>();
-
 
         match get_word_details(&word).await {
             Ok(word_details) => {

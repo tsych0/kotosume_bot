@@ -1,14 +1,13 @@
 use crate::command::Command;
+use crate::contains_any;
 use crate::dictionary::{get_random_word, get_word_details, WordInfo};
+use crate::embeddings::get_similar_word;
 use crate::state::MyDialogue;
 use crate::state::State::{AlphabetSprint, Start};
-use teloxide::payloads::SendMessageSetters;
 use teloxide::prelude::{ChatId, Message, Requester, ResponseResult};
 use teloxide::types::Me;
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
-use crate::contains_any;
-use crate::embeddings::get_similar_word;
 
 pub async fn start_alphabet_sprint(
     chat_id: ChatId,
@@ -22,7 +21,7 @@ pub async fn start_alphabet_sprint(
     .await?;
 
     loop {
-        if let Ok(word) = get_random_word().await {
+        if let Ok(word) = get_random_word(|_| true).await {
             bot.send_message(chat_id, format!("First word: {}", word.word))
                 .await?;
             word.send_message(&bot, chat_id, 0).await?;
@@ -87,10 +86,7 @@ async fn game(
         let word = words[0].to_lowercase();
 
         if !word.starts_with(alphabet) {
-            bot.send_message(
-                chat_id,
-                format!("Give word starting with '{}'", alphabet),
-            )
+            bot.send_message(chat_id, format!("Give word starting with '{}'", alphabet))
                 .await?;
             return Ok(());
         }
@@ -99,7 +95,6 @@ async fn game(
             .map(|x| x.stems.clone())
             .flatten()
             .collect::<Vec<String>>();
-
 
         match get_word_details(&word).await {
             Ok(word_details) => {
@@ -115,9 +110,8 @@ async fn game(
                 let mut next_word = String::new();
                 let mut next_word_details = None;
                 while next_word_details.is_none() {
-                    next_word = get_similar_word(&word, alphabet, |x| {
-                        !chosen_words.contains(&x.into())
-                    });
+                    next_word =
+                        get_similar_word(&word, alphabet, |x| !chosen_words.contains(&x.into()));
                     chosen_words.push(next_word.clone());
                     next_word_details = get_word_details(&next_word).await.ok();
                 }
@@ -126,12 +120,14 @@ async fn game(
                 bot.send_message(chat_id, format!("Next word: {}", next_word))
                     .await?;
                 next_word_details.send_message(&bot, chat_id, 0).await?;
-                bot.send_message(
-                    chat_id,
-                    "Now your turn.'".to_string(),
-                )
+                bot.send_message(chat_id, "Now your turn.'".to_string())
                     .await?;
-                let _ = dialogue.update(AlphabetSprint {alphabet, words: chain }).await;
+                let _ = dialogue
+                    .update(AlphabetSprint {
+                        alphabet,
+                        words: chain,
+                    })
+                    .await;
             }
             Err(e) => {
                 bot.send_message(chat_id, e).await?;

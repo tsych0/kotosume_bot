@@ -10,3 +10,7 @@ pub async fn start_word_ladder(
     // "word_ladder" => "Word Length Ladder! Climb up the word sizes.",
     todo!()
 }
+
+pub async fn word_ladder() -> ResponseResult<()> {
+    todo!()
+}

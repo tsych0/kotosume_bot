@@ -57,20 +57,26 @@ where
         .filter(|x| predicate(*x))
         .collect::<Vec<&String>>()
         .into_iter()
-        .map(|x| (similarity(word, f_map, x, s_map), x))
+        .map(|x| (similarity_eff(word, f_map, x, s_map), x))
         .max_by(|x, y| x.0.partial_cmp(&y.0).unwrap())
         .unwrap()
         .1
         .to_string()
 }
 
-pub fn similarity(
+pub fn similarity(a: &str, b: &str) -> f64 {
+    let embeddings = get_embeddings();
+    let a_embed_map = embeddings.get(&a.chars().next().unwrap()).unwrap(); 
+    let b_embed_map = embeddings.get(&b.chars().next().unwrap()).unwrap();
+    cosine(a_embed_map.get(a).unwrap(), b_embed_map.get(b).unwrap())
+}
+
+fn similarity_eff(
     a: &str,
     a_embed_map: &HashMap<String, Vec<f64>>,
     b: &str,
     b_embed_map: &HashMap<String, Vec<f64>>,
 ) -> f64 {
-    let embeddings = get_embeddings();
     cosine(a_embed_map.get(a).unwrap(), b_embed_map.get(b).unwrap())
 }
 

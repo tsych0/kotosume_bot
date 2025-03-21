@@ -5,17 +5,18 @@ mod games;
 mod handler;
 mod state;
 
-use std::collections::HashSet;
 use crate::dictionary::{get_cache, init_cache, save_cache};
 use crate::games::alphabet_sprint::alphabet_sprint;
 use crate::games::forbidden_letters::forbidden_letters;
+use crate::games::scrambled::last_letter_scramble;
+use crate::games::synonym_string::synonym_string;
 use crate::games::word_chain::word_chain;
+use crate::games::word_ladder::word_ladder;
 use crate::state::State;
+use std::collections::HashSet;
 use std::error::Error;
 use teloxide::dispatching::dialogue::InMemStorage;
-use teloxide::types::{MaybeInaccessibleMessage, Me};
-use teloxide::utils::command::BotCommands;
-use teloxide::{prelude::*, types::InlineKeyboardButton, types::InlineKeyboardMarkup};
+use teloxide::prelude::*;
 use tokio::signal;
 
 // Main bot setup with both message and callback handlers
@@ -46,7 +47,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     dptree::case![State::AlphabetSprint { alphabet, words }]
                         .endpoint(alphabet_sprint),
                 )
-                .branch(dptree::case![State::LastLetterScramble { level, chain }]),
+                .branch(
+                    dptree::case![State::LastLetterScramble { level, chain }]
+                        .endpoint(last_letter_scramble),
+                )
+                .branch(
+                    dptree::case![State::WordLengthLadder { max_len, chain }].endpoint(word_ladder),
+                )
+                .branch(dptree::case![State::SynonymString { chain }].endpoint(synonym_string)),
         )
         .branch(
             Update::filter_callback_query()

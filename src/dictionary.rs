@@ -1,10 +1,9 @@
 use crate::embeddings::{get_embeddings, is_valid_word};
 use bincode::{Decode, Encode};
-use itertools::Itertools;
 use merriam_webster_http::MerriamWebsterClient;
 use moka::future::Cache;
-use rand::prelude::{IndexedRandom, IteratorRandom};
-use rand::{random, rng, Rng};
+use rand::prelude::IteratorRandom;
+use rand::rng;
 use std::env;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -152,11 +151,15 @@ fn get_client() -> &'static MerriamWebsterClient {
     CLIENT.get_or_init(|| init_client())
 }
 
-pub async fn get_random_word() -> Result<WordInfo, String> {
+pub async fn get_random_word<P>(predicate: P) -> Result<WordInfo, String>
+where
+    P: Fn(&str) -> bool,
+{
     let random_char = ('a'..='z').choose(&mut rand::rng()).unwrap();
     let embeddings = get_embeddings().get(&random_char).unwrap();
     let word = embeddings
         .keys()
+        .filter(|k| predicate(k))
         .choose(&mut rng())
         .ok_or("cannot choose word")?;
     get_word_details(word).await
