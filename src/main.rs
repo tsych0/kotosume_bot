@@ -5,10 +5,10 @@ mod games;
 mod handler;
 mod state;
 
+use std::collections::HashSet;
 use crate::dictionary::{get_cache, init_cache, save_cache};
 use crate::games::alphabet_sprint::alphabet_sprint;
 use crate::games::forbidden_letters::forbidden_letters;
-use crate::games::rhyme_time::rhyme_time;
 use crate::games::word_chain::word_chain;
 use crate::state::State;
 use std::error::Error;
@@ -35,7 +35,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .enter_dialogue::<Message, InMemStorage<State>, State>()
                 .branch(dptree::case![State::Start].endpoint(handler::message_handler))
                 .branch(dptree::case![State::WordChain { chain }].endpoint(word_chain))
-                .branch(dptree::case![State::RhymeTime { chain }].endpoint(rhyme_time))
                 .branch(
                     dptree::case![State::ForbiddenLetters {
                         forbidden_letters,
@@ -71,4 +70,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await;
 
     Ok(())
+}
+
+pub fn contains_any(vec1: &[String], vec2: &[String]) -> bool {
+    let set: HashSet<_> = vec1.iter().collect();
+    vec2.iter().any(|s| set.contains(s))
 }

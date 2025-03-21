@@ -16,9 +16,6 @@ pub enum State {
         alphabet: char,
         words: Vec<WordInfo>,
     },
-    RhymeTime {
-        chain: Vec<WordInfo>,
-    },
     LastLetterScramble {
         level: u8,
         chain: Vec<WordInfo>,

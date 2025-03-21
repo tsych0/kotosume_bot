@@ -2,7 +2,6 @@ use crate::command::Command;
 use crate::dictionary::get_word_details;
 use crate::games::alphabet_sprint::start_alphabet_sprint;
 use crate::games::forbidden_letters::start_forbidden_letters;
-use crate::games::rhyme_time::start_rhyme_time;
 use crate::games::scrambled::start_last_letter_scramble;
 use crate::games::synonym_string::start_synonym_string;
 use crate::games::word_chain::start_word_chain;
@@ -52,7 +51,6 @@ pub async fn callback_handler(
             match game.as_str() {
                 "word_chain" => start_word_chain(chat.id, bot, dialogue).await,
                 "alphabet_sprint" => start_alphabet_sprint(chat.id, bot, dialogue).await,
-                "rhyme_time" => start_rhyme_time(chat.id, bot, dialogue).await,
                 "last_letter" => start_last_letter_scramble(chat.id, bot, dialogue).await,
                 "synonym_string" => start_synonym_string(chat.id, bot, dialogue).await,
                 "word_ladder" => start_word_ladder(chat.id, bot, dialogue).await,
@@ -84,7 +82,6 @@ fn make_game_menu() -> InlineKeyboardMarkup {
     let games = vec![
         ("Word Chain", "word_chain"),
         ("Alphabet Sprint", "alphabet_sprint"),
-        ("Rhyme Time", "rhyme_time"),
         ("Last Letter Scramble", "last_letter"),
         ("Synonym String", "synonym_string"),
         ("Word Length Ladder", "word_ladder"),

@@ -8,6 +8,7 @@ use teloxide::prelude::*;
 use teloxide::types::{Me, Message};
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
+use crate::contains_any;
 
 pub async fn start_word_chain(
     chat_id: ChatId,
@@ -94,14 +95,15 @@ async fn game(
             .flatten()
             .collect::<Vec<String>>();
 
-        if chosen_words.contains(&word) {
-            bot.send_message(chat_id, "Word already used.").await?;
-            return Ok(());
-        }
-        chosen_words.push(word.clone());
 
         match get_word_details(&word).await {
             Ok(word_details) => {
+                if contains_any(&chosen_words, &word_details.stems) {
+                    bot.send_message(chat_id, "Word already used.").await?;
+                    return Ok(());
+                }
+                chosen_words.push(word.clone());
+
                 word_details.send_message(&bot, chat_id, 0).await?;
                 chain.push(word_details.clone());
 
