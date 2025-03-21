@@ -1,11 +1,12 @@
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::OnceLock;
 
-static EMBEDDINGS: OnceLock<HashMap<String, Vec<f64>>> = OnceLock::new();
+static EMBEDDINGS: OnceLock<HashMap<char, HashMap<String, Vec<f64>>>> = OnceLock::new();
 const EMBEDDINGS_FILE: &str = "word2vec.txt";
 
-fn init(file_name: &str) -> HashMap<String, Vec<f64>> {
+fn init(file_name: &str) -> HashMap<char, HashMap<String, Vec<f64>>> {
     fs::read_to_string(&file_name)
         .unwrap()
         .replace("\r", "")
@@ -18,44 +19,64 @@ fn init(file_name: &str) -> HashMap<String, Vec<f64>> {
                 .collect::<Vec<f64>>();
             (word, vec)
         })
+        .into_iter()
+        .sorted_by_key(|(key, _)| key.chars().next().unwrap()) // Sort by first character
+        .chunk_by(|(key, _)| key.chars().next().unwrap()) // Group by first character
+        .into_iter()
+        .map(|(first_char, group)| {
+            let inner_map = group.into_iter().collect::<HashMap<_, _>>();
+            (first_char, inner_map)
+        })
         .collect()
 }
 
-fn get_embeddings() -> &'static HashMap<String, Vec<f64>> {
+fn get_embeddings() -> &'static HashMap<char, HashMap<String, Vec<f64>>> {
     EMBEDDINGS.get_or_init(|| init(EMBEDDINGS_FILE))
 }
 
 pub fn is_valid_word(word: &str) -> bool {
-    get_embeddings().contains_key(word)
+    let first_char = word.chars().next().unwrap();
+    get_embeddings()
+        .get(&first_char)
+        .unwrap()
+        .contains_key(word)
 }
 
 pub fn get_vocabulary() -> Vec<String> {
     let embeddings = get_embeddings();
-    embeddings.keys().cloned().collect()
+    embeddings
+        .values()
+        .map(|v| v.keys().cloned())
+        .flatten()
+        .collect()
 }
 
-pub fn get_similar_word<P>(word: &str, predicate: P) -> String
+pub fn get_similar_word<P>(word: &str, starting_char: char, predicate: P) -> String
 where
     P: Fn(&str) -> bool,
 {
     let embeddings = get_embeddings();
+    let first_char = word.chars().next().unwrap();
     embeddings
+        .get(&starting_char)
+        .unwrap()
         .keys()
         .filter(|x| predicate(*x))
         .collect::<Vec<&String>>()
         .into_iter()
-        .map(|x| (similarity(word, x), x))
-        .max_by(|x, y| {
-                x.0.partial_cmp(&y.0).unwrap()
-        })
+        .map(|x| (similarity(word, first_char, x, starting_char), x))
+        .max_by(|x, y| x.0.partial_cmp(&y.0).unwrap())
         .unwrap()
         .1
         .to_string()
 }
 
-pub fn similarity(a: &str, b: &str) -> f64 {
+pub fn similarity(a: &str, a_char: char, b: &str, b_char: char) -> f64 {
     let embeddings = get_embeddings();
-    cosine(embeddings.get(a).unwrap(), embeddings.get(b).unwrap())
+    cosine(
+        embeddings.get(&a_char).unwrap().get(a).unwrap(),
+        embeddings.get(&b_char).unwrap().get(b).unwrap(),
+    )
 }
 
 fn cosine(a: &Vec<f64>, b: &Vec<f64>) -> f64 {

@@ -9,6 +9,11 @@ use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::sync::OnceLock;
+use teloxide::payloads::{EditMessageReplyMarkupSetters, EditMessageTextSetters, SendMessageSetters};
+use teloxide::prelude::{Requester, ResponseResult};
+use teloxide::types::ParseMode::MarkdownV2;
+use teloxide::types::{ChatId, InlineKeyboardButton, InlineKeyboardMarkup, MessageId};
+use teloxide::Bot;
 
 #[derive(Encode, Decode, Clone)]
 pub struct WordInfo {
@@ -17,18 +22,59 @@ pub struct WordInfo {
     pub defs: Vec<Def>,
 }
 
-impl Display for WordInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Word: {}", self.word)?;
-        writeln!(
-            f,
-            "Definitions: \n {}",
-            self.defs
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+impl WordInfo {
+    pub fn get_message(
+        &self,
+        def_idx: usize,
+    ) -> (String, InlineKeyboardMarkup) {
+        let def = &self.defs[def_idx];
+        let message = format!("{} `{}`", self.word, def.functional_label);
+
+        let buttons: Vec<_> = vec![
+            ("prev", def_idx.wrapping_sub(1)),
+            ("next", def_idx + 1),
+        ]
+            .into_iter()
+            .filter_map(|(txt, idx)| {
+                if idx < self.defs.len() {
+                    Some(InlineKeyboardButton::callback(txt, format!("def_{}_{}", self.word, idx.to_string())))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let keyboard = InlineKeyboardMarkup::new(vec![buttons]);
+
+        (message, keyboard)
+    }
+
+    pub async fn send_message(
+        &self,
+        bot: &Bot,
+        chat_id: ChatId,
+        def_idx: usize,
+    ) -> ResponseResult<()> {
+       let (message, keyboard) = self.get_message(def_idx);
+        bot.send_message(chat_id, message)
+            .reply_markup(keyboard)
+            .parse_mode(MarkdownV2)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn edit_message(
+        &self,
+        bot: &Bot,
+        chat_id: ChatId,
+        message_id: MessageId,
+        def_idx: usize,
+    ) -> ResponseResult<()> {
+        let (message, keyboard) = self.get_message(def_idx);
+        bot.edit_message_text(chat_id, message_id, message).await?;
+        bot.edit_message_reply_markup(chat_id, message_id).reply_markup(keyboard).await?;
+        Ok(())
     }
 }
 
@@ -36,15 +82,6 @@ impl Display for WordInfo {
 pub struct Def {
     pub definitions: Vec<String>,
     pub functional_label: String,
-}
-
-impl Display for Def {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for d in &self.definitions {
-            writeln!(f, "({}): {}", self.functional_label, d)?;
-        }
-        Ok(())
-    }
 }
 
 const CACHE_SIZE: u64 = 30_000;

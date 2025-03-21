@@ -3,12 +3,41 @@ use crate::dictionary::{get_random_word, get_word_details, WordInfo};
 use crate::embeddings::get_similar_word;
 use crate::state::MyDialogue;
 use crate::state::State::{Start, WordChain};
-use rand::{rng, Rng};
 use teloxide::prelude::ResponseResult;
 use teloxide::prelude::*;
 use teloxide::types::{Me, Message};
-use teloxide::utils::command::{BotCommands};
+use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
+
+pub async fn start_word_chain(
+    chat_id: ChatId,
+    bot: Bot,
+    dialogue: MyDialogue,
+) -> ResponseResult<()> {
+    bot.send_message(
+        chat_id,
+        "You selected Word Chain! Let’s start linking words.",
+    )
+    .await?;
+
+    loop {
+        if let Ok(word) = get_random_word().await {
+            bot.send_message(chat_id, format!("First word: {}", word.word))
+                .await?;
+            word.send_message(&bot, chat_id, 0).await?;
+            bot.send_message(
+                chat_id,
+                format!(
+                    "Now give a word starting with '{}'",
+                    word.word.chars().last().unwrap()
+                ),
+            )
+            .await?;
+            let _ = dialogue.update(WordChain { chain: vec![word] }).await;
+            return Ok(());
+        }
+    }
+}
 
 pub async fn word_chain(
     bot: Bot,
@@ -37,36 +66,6 @@ pub async fn word_chain(
     Ok(())
 }
 
-pub async fn start_word_chain(
-    chat_id: ChatId,
-    bot: Bot,
-    dialogue: MyDialogue,
-) -> ResponseResult<()> {
-    bot.send_message(
-        chat_id,
-        "You selected Word Chain! Let’s start linking words.",
-    )
-    .await?;
-
-     loop {
-         if let Ok(word) = get_random_word().await {
-             bot.send_message(chat_id, format!("First word: {}", word.word))
-                 .await?;
-             bot.send_message(chat_id, word.to_string()).await?;
-             bot.send_message(
-                 chat_id,
-                 format!(
-                     "Now give a word starting with '{}'",
-                     word.word.chars().last().unwrap()
-                 ),
-             )
-                 .await?;
-             let _ = dialogue.update(WordChain { chain: vec![word] }).await;
-             return Ok(());
-         }
-     }
-}
-
 async fn game(
     text: &str,
     bot: Bot,
@@ -79,9 +78,20 @@ async fn game(
         bot.send_message(chat_id, "Too many words.").await?;
     } else {
         let word = words[0].to_lowercase();
+
+        let last_constraint = chain.last().unwrap().word.chars().next().unwrap();
+        if !word.starts_with(last_constraint) {
+            bot.send_message(
+                chat_id,
+                format!("Give word starting with '{}'", last_constraint),
+            )
+            .await?;
+            return Ok(());
+        }
+
         match get_word_details(&word).await {
             Ok(word_details) => {
-                bot.send_message(chat_id, word_details.to_string()).await?;
+                word_details.send_message(&bot, chat_id, 0).await?;
                 chain.push(word_details.clone());
 
                 let mut chosen_words = chain
@@ -93,13 +103,9 @@ async fn game(
                 let mut next_word = String::new();
                 let mut next_word_details = None;
                 while next_word_details.is_none() {
-                    next_word = get_similar_word(
-                        &word,
-                        |x| {
-                            !chosen_words.contains(&x.into())
-                                && x.starts_with(word.chars().last().unwrap())
-                        },
-                    );
+                    next_word = get_similar_word(&word, word.chars().last().unwrap(), |x| {
+                        !chosen_words.contains(&x.into())
+                    });
                     chosen_words.push(next_word.clone());
                     next_word_details = get_word_details(&next_word).await.ok();
                 }
@@ -107,8 +113,7 @@ async fn game(
                 chain.push(next_word_details.clone());
                 bot.send_message(chat_id, format!("Next word: {}", next_word))
                     .await?;
-                bot.send_message(chat_id, next_word_details.to_string())
-                    .await?;
+                next_word_details.send_message(&bot, chat_id, 0).await?;
                 bot.send_message(
                     chat_id,
                     format!(
