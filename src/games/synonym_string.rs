@@ -8,5 +8,5 @@ pub async fn start_synonym_string(
     dialogue: MyDialogue,
 ) -> ResponseResult<()> {
     // "synonym_string" => "Synonym String starts now! Link those meanings.",
-    Ok(())
+    todo!()
 }

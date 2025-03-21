@@ -1,4 +1,5 @@
 use crate::command::Command;
+use crate::dictionary::get_word_details;
 use crate::games::alphabet_sprint::start_alphabet_sprint;
 use crate::games::forbidden_letters::start_forbidden_letters;
 use crate::games::rhyme_time::start_rhyme_time;
@@ -12,7 +13,6 @@ use teloxide::prelude::{CallbackQuery, Message, Requester, ResponseResult};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me};
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
-use crate::dictionary::get_word_details;
 
 pub async fn message_handler(bot: Bot, msg: Message, me: Me) -> ResponseResult<()> {
     if let Some(text) = msg.text() {
@@ -59,12 +59,15 @@ pub async fn callback_handler(
                 "forbidden_letters" => start_forbidden_letters(chat.id, bot, dialogue).await,
                 s if s.starts_with("def") => {
                     let mut x = s.split("_");
+                    let _ = x.next();
                     let word = x.next().unwrap();
                     let idx = x.next().unwrap().parse().unwrap();
                     let word_details = get_word_details(word).await.unwrap();
-                    word_details.edit_message(&bot, chat.id, id.clone(), idx).await?;
+                    word_details
+                        .edit_message(&bot, chat.id, id.clone(), idx)
+                        .await?;
                     Ok(())
-                },
+                }
                 _ => Ok(()),
             }?;
         }

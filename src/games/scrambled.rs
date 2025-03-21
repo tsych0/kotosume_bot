@@ -8,5 +8,5 @@ pub async fn start_last_letter_scramble(
     dialogue: MyDialogue,
 ) -> ResponseResult<()> {
     // "last_letter" => "Last Letter Scramble! Let’s twist those endings.",
-    Ok(())
+    todo!()
 }

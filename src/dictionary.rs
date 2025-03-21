@@ -1,15 +1,17 @@
-use crate::embeddings::{get_vocabulary, is_valid_word};
+use crate::embeddings::{get_embeddings, is_valid_word};
 use bincode::{Decode, Encode};
+use itertools::Itertools;
 use merriam_webster_http::MerriamWebsterClient;
 use moka::future::Cache;
 use rand::prelude::{IndexedRandom, IteratorRandom};
-use rand::rng;
+use rand::{random, rng, Rng};
 use std::env;
-use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::sync::OnceLock;
-use teloxide::payloads::{EditMessageReplyMarkupSetters, EditMessageTextSetters, SendMessageSetters};
+use teloxide::payloads::{
+    EditMessageReplyMarkupSetters, EditMessageTextSetters, SendMessageSetters,
+};
 use teloxide::prelude::{Requester, ResponseResult};
 use teloxide::types::ParseMode::MarkdownV2;
 use teloxide::types::{ChatId, InlineKeyboardButton, InlineKeyboardMarkup, MessageId};
@@ -21,23 +23,44 @@ pub struct WordInfo {
     pub stems: Vec<String>,
     pub defs: Vec<Def>,
 }
+fn escape(text: &str) -> String {
+    let special_chars = "_*[]()~`>#+-=|{}.!"; // Characters to escape
+    text.chars()
+        .flat_map(|c| {
+            if special_chars.contains(c) {
+                vec!['\\', c]
+            } else {
+                vec![c]
+            }
+        })
+        .collect()
+}
 
 impl WordInfo {
-    pub fn get_message(
-        &self,
-        def_idx: usize,
-    ) -> (String, InlineKeyboardMarkup) {
+    pub fn get_message(&self, def_idx: usize) -> (String, InlineKeyboardMarkup) {
         let def = &self.defs[def_idx];
-        let message = format!("{} `{}`", self.word, def.functional_label);
+        let message = format!(
+            "{} *__{}__*\n{}",
+            escape(&self.word),
+            escape(&def.functional_label),
+            escape(
+                &def.definitions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| format!("{}. {}", i + 1, v))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            )
+        );
 
-        let buttons: Vec<_> = vec![
-            ("prev", def_idx.wrapping_sub(1)),
-            ("next", def_idx + 1),
-        ]
+        let buttons: Vec<_> = vec![("prev", def_idx.wrapping_sub(1)), ("next", def_idx + 1)]
             .into_iter()
             .filter_map(|(txt, idx)| {
                 if idx < self.defs.len() {
-                    Some(InlineKeyboardButton::callback(txt, format!("def_{}_{}", self.word, idx.to_string())))
+                    Some(InlineKeyboardButton::callback(
+                        txt,
+                        format!("def_{}_{}", self.word, idx.to_string()),
+                    ))
                 } else {
                     None
                 }
@@ -55,7 +78,7 @@ impl WordInfo {
         chat_id: ChatId,
         def_idx: usize,
     ) -> ResponseResult<()> {
-       let (message, keyboard) = self.get_message(def_idx);
+        let (message, keyboard) = self.get_message(def_idx);
         bot.send_message(chat_id, message)
             .reply_markup(keyboard)
             .parse_mode(MarkdownV2)
@@ -72,8 +95,12 @@ impl WordInfo {
         def_idx: usize,
     ) -> ResponseResult<()> {
         let (message, keyboard) = self.get_message(def_idx);
-        bot.edit_message_text(chat_id, message_id, message).await?;
-        bot.edit_message_reply_markup(chat_id, message_id).reply_markup(keyboard).await?;
+        bot.edit_message_text(chat_id, message_id, message)
+            .parse_mode(MarkdownV2)
+            .await?;
+        bot.edit_message_reply_markup(chat_id, message_id)
+            .reply_markup(keyboard)
+            .await?;
         Ok(())
     }
 }
@@ -84,7 +111,7 @@ pub struct Def {
     pub functional_label: String,
 }
 
-const CACHE_SIZE: u64 = 30_000;
+const CACHE_SIZE: u64 = 100_000;
 const CACHE_PATH: &str = "cache.bin";
 static CACHE: OnceLock<Cache<String, WordInfo>> = OnceLock::new();
 static CLIENT: OnceLock<MerriamWebsterClient> = OnceLock::new();
@@ -126,13 +153,13 @@ fn get_client() -> &'static MerriamWebsterClient {
 }
 
 pub async fn get_random_word() -> Result<WordInfo, String> {
-    let vocab = get_vocabulary();
-    let word = vocab
+    let random_char = ('a'..='z').choose(&mut rand::rng()).unwrap();
+    let embeddings = get_embeddings().get(&random_char).unwrap();
+    let word = embeddings
+        .keys()
         .choose(&mut rng())
-        .map(|x| x.clone())
         .ok_or("cannot choose word")?;
-    println!("getting word details of word {}", word);
-    get_word_details(&word).await
+    get_word_details(word).await
 }
 
 pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
@@ -149,6 +176,7 @@ pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
         return Err(format!("{} is not in our wordlist.", word).into());
     }
 
+    println!("getting word details of word {}", word);
     let client = get_client();
     let def = client
         .collegiate_definition(word.into())

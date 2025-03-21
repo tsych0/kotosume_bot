@@ -18,7 +18,7 @@ pub async fn start_forbidden_letters(
     bot.send_message(chat_id, "Forbidden Letters! Avoid the banned ones.")
         .await?;
 
-    let forbidden_letters = ('a'..'z').choose_multiple(&mut rng(), 1);
+    let forbidden_letters = ('a'..='z').choose_multiple(&mut rng(), 1);
 
     loop {
         if let Ok(word) = get_random_word().await {

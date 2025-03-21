@@ -1,7 +1,7 @@
 use crate::command::Command;
 use crate::dictionary::{get_random_word, WordInfo};
 use crate::state::MyDialogue;
-use crate::state::State::{AlphabetSprint, Start, WordChain};
+use crate::state::State::{AlphabetSprint, Start};
 use teloxide::payloads::SendMessageSetters;
 use teloxide::prelude::{ChatId, Message, Requester, ResponseResult};
 use teloxide::types::Me;

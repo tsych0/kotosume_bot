@@ -8,5 +8,5 @@ pub async fn start_word_ladder(
     dialogue: MyDialogue,
 ) -> ResponseResult<()> {
     // "word_ladder" => "Word Length Ladder! Climb up the word sizes.",
-    Ok(())
+    todo!()
 }

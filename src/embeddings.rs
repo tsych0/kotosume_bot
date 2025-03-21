@@ -30,7 +30,7 @@ fn init(file_name: &str) -> HashMap<char, HashMap<String, Vec<f64>>> {
         .collect()
 }
 
-fn get_embeddings() -> &'static HashMap<char, HashMap<String, Vec<f64>>> {
+pub fn get_embeddings() -> &'static HashMap<char, HashMap<String, Vec<f64>>> {
     EMBEDDINGS.get_or_init(|| init(EMBEDDINGS_FILE))
 }
 
@@ -42,21 +42,14 @@ pub fn is_valid_word(word: &str) -> bool {
         .contains_key(word)
 }
 
-pub fn get_vocabulary() -> Vec<String> {
-    let embeddings = get_embeddings();
-    embeddings
-        .values()
-        .map(|v| v.keys().cloned())
-        .flatten()
-        .collect()
-}
-
 pub fn get_similar_word<P>(word: &str, starting_char: char, predicate: P) -> String
 where
     P: Fn(&str) -> bool,
 {
     let embeddings = get_embeddings();
-    let first_char = word.chars().next().unwrap();
+    let f_map = embeddings.get(&word.chars().next().unwrap()).unwrap();
+    let s_map = embeddings.get(&starting_char).unwrap();
+
     embeddings
         .get(&starting_char)
         .unwrap()
@@ -64,19 +57,21 @@ where
         .filter(|x| predicate(*x))
         .collect::<Vec<&String>>()
         .into_iter()
-        .map(|x| (similarity(word, first_char, x, starting_char), x))
+        .map(|x| (similarity(word, f_map, x, s_map), x))
         .max_by(|x, y| x.0.partial_cmp(&y.0).unwrap())
         .unwrap()
         .1
         .to_string()
 }
 
-pub fn similarity(a: &str, a_char: char, b: &str, b_char: char) -> f64 {
+pub fn similarity(
+    a: &str,
+    a_embed_map: &HashMap<String, Vec<f64>>,
+    b: &str,
+    b_embed_map: &HashMap<String, Vec<f64>>,
+) -> f64 {
     let embeddings = get_embeddings();
-    cosine(
-        embeddings.get(&a_char).unwrap().get(a).unwrap(),
-        embeddings.get(&b_char).unwrap().get(b).unwrap(),
-    )
+    cosine(a_embed_map.get(a).unwrap(), b_embed_map.get(b).unwrap())
 }
 
 fn cosine(a: &Vec<f64>, b: &Vec<f64>) -> f64 {

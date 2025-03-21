@@ -79,7 +79,7 @@ async fn game(
     } else {
         let word = words[0].to_lowercase();
 
-        let last_constraint = chain.last().unwrap().word.chars().next().unwrap();
+        let last_constraint = chain.last().unwrap().word.chars().last().unwrap();
         if !word.starts_with(last_constraint) {
             bot.send_message(
                 chat_id,
@@ -88,17 +88,22 @@ async fn game(
             .await?;
             return Ok(());
         }
+        let mut chosen_words = chain
+            .iter()
+            .map(|x| x.stems.clone())
+            .flatten()
+            .collect::<Vec<String>>();
+
+        if chosen_words.contains(&word) {
+            bot.send_message(chat_id, "Word already used.").await?;
+            return Ok(());
+        }
+        chosen_words.push(word.clone());
 
         match get_word_details(&word).await {
             Ok(word_details) => {
                 word_details.send_message(&bot, chat_id, 0).await?;
                 chain.push(word_details.clone());
-
-                let mut chosen_words = chain
-                    .iter()
-                    .map(|x| x.stems.clone())
-                    .flatten()
-                    .collect::<Vec<String>>();
 
                 let mut next_word = String::new();
                 let mut next_word_details = None;
