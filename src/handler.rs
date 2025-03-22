@@ -8,6 +8,7 @@ use crate::games::word_chain::start_word_chain;
 use crate::games::word_ladder::start_word_ladder;
 use crate::state::MyDialogue;
 use log::{error, info, warn};
+use rand::prelude::IndexedRandom;
 use teloxide::payloads::SendMessageSetters;
 use teloxide::prelude::{CallbackQuery, Message, Requester, ResponseResult};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me};
@@ -55,32 +56,45 @@ pub async fn message_handler(bot: Bot, msg: Message, me: Me) -> ResponseResult<(
                 handle_start_command(&bot, msg.chat.id).await?;
             }
             Ok(Command::Play) => {
-                info!("Play command not implemented yet");
-                // TODO: Implement random game selection
+                info!("Play command received from user {}", msg.chat.id);
+                handle_play_command(&bot, msg.chat.id).await?;
             }
             Ok(Command::Hint) => {
-                info!("Hint command not implemented yet");
-                // TODO: Implement hint functionality
+                info!("Hint command received but no active game");
+                bot.send_message(
+                    msg.chat.id,
+                    "You need to start a game first before using the hint command. Use /start to choose a game."
+                ).await?;
             }
             Ok(Command::Skip) => {
-                info!("Skip command not implemented yet");
-                // TODO: Implement skip functionality
+                info!("Skip command received but no active game");
+                bot.send_message(
+                    msg.chat.id,
+                    "You need to start a game first before using the skip command. Use /start to choose a game."
+                ).await?;
             }
             Ok(Command::Score) => {
-                info!("Score command not implemented yet");
-                // TODO: Implement score tracking
+                info!("Score command received but no active game");
+                bot.send_message(
+                    msg.chat.id,
+                    "You need to start a game first to check the score. Use /start to choose a game."
+                ).await?;
             }
             Ok(Command::Rules) => {
-                info!("Rules command not implemented yet");
-                // TODO: Implement rules display
+                info!("Rules command received from user {}", msg.chat.id);
+                handle_rules_command(&bot, msg.chat.id).await?;
             }
             Ok(Command::Stats) => {
-                info!("Stats command not implemented yet");
-                // TODO: Implement statistics tracking
+                info!("Stats command received from user {}", msg.chat.id);
+                handle_stats_command(&bot, msg.chat.id).await?;
             }
             Ok(Command::Stop) => {
-                info!("Stop command not implemented yet");
-                // TODO: Implement game stopping
+                info!("Stop command received but no active game");
+                bot.send_message(
+                    msg.chat.id,
+                    "There's no active game to stop. Use /start to choose a game.",
+                )
+                .await?;
             }
             Err(_) => {
                 warn!("Unknown command received: {}", text);
@@ -97,9 +111,72 @@ pub async fn message_handler(bot: Bot, msg: Message, me: Me) -> ResponseResult<(
 
 /// Handle the start command
 async fn handle_start_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> ResponseResult<()> {
-    bot.send_message(chat_id, "Welcome to the Wordplay Bot! Choose a game:")
+    bot.send_message(chat_id, "Welcome to the Kotosume Bot! Choose a game:")
         .reply_markup(make_game_menu())
         .await?;
+    Ok(())
+}
+
+/// Handle the play command - randomly select a game to start
+async fn handle_play_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> ResponseResult<()> {
+    let games = vec![
+        ("word_chain", "Word Chain"),
+        ("alphabet_sprint", "Alphabet Sprint"),
+        ("last_letter", "Last Letter Scramble"),
+        ("synonym_string", "Synonym String"),
+        ("word_ladder", "Word Length Ladder"),
+        ("forbidden_letters", "Forbidden Letters"),
+    ];
+
+    let &(game_id, game_name) = games.choose(&mut rand::rng()).unwrap();
+    bot.send_message(
+        chat_id,
+        format!("I've selected a random game for you: {}", game_name),
+    )
+    .await?;
+
+    // Forward to the regular start menu to select the game
+    // This avoids needing to create a dialogue directly
+    bot.send_message(chat_id, "Please select your game from the menu:")
+        .reply_markup(make_game_menu())
+        .await?;
+
+    Ok(())
+}
+
+/// Handle the rules command when in Start state - show available games and their rules
+async fn handle_rules_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> ResponseResult<()> {
+    bot.send_message(
+        chat_id,
+        "Kotosume Bot Games:\n\n\
+        🔤 *Word Chain*: Link words where each starts with the last letter of the previous word\n\
+        🏃 *Alphabet Sprint*: Provide words that all start with the same letter\n\
+        🔤 *Last Letter Scramble*: Like Word Chain, but with required letters from the previous word\n\
+        🔄 *Synonym String*: Chain words with similar meanings that start with the last letter of the previous word\n\
+        📏 *Word Length Ladder*: Start with short words and increase length each turn\n\
+        ❌ *Forbidden Letters*: Word chain while avoiding certain letters\n\n\
+        Use /start to select a game, then use /rules in-game for specific rules.",
+    ).await?;
+
+    Ok(())
+}
+
+/// Handle the stats command - show player statistics
+async fn handle_stats_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> ResponseResult<()> {
+    // Note: In a complete implementation, this would retrieve statistics from a database
+    bot.send_message(
+        chat_id,
+        "Player Statistics\n\n\
+        This feature is coming soon! In the future, you'll be able to track:\n\
+        • Games played\n\
+        • Win/loss record\n\
+        • Longest word chains\n\
+        • Favorite games\n\
+        • Vocabulary size\n\n\
+        Stay tuned for updates!",
+    )
+    .await?;
+
     Ok(())
 }
 

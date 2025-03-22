@@ -13,6 +13,7 @@ use crate::games::synonym_string::synonym_string;
 use crate::games::word_chain::word_chain;
 use crate::games::word_ladder::word_ladder;
 use crate::state::State;
+use handler::message_handler;
 use log::{error, info};
 use std::collections::HashSet;
 use std::error::Error;
@@ -48,7 +49,7 @@ fn create_dispatcher(
         .branch(
             Update::filter_message()
                 .enter_dialogue::<Message, InMemStorage<State>, State>()
-                .branch(dptree::case![State::Start].endpoint(handler::message_handler))
+                .branch(dptree::case![State::Start].endpoint(message_handler))
                 .branch(dptree::case![State::WordChain { chain, curr_char }].endpoint(word_chain))
                 .branch(
                     dptree::case![State::ForbiddenLetters {

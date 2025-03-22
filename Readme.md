@@ -1,47 +1,77 @@
 # Kotosume Bot
 
-A Telegram chatbot that brings fun and challenging word games to your fingertips! Test your vocabulary, speed, and creativity with a variety of linguistic puzzles.
+A Telegram chatbot that brings fun and challenging word games to your fingertips! Test your vocabulary, speed, and creativity with a variety of linguistic puzzles designed to enhance your language skills.
 
 ## About
 
-Wordplay Bot offers a collection of brain-teasing word games for language lovers. Whether you're a casual player or a word nerd, dive in and enjoy the twists and turns of wordplay!
+Kotosume Bot is a word games platform that combines entertainment with language learning. The bot offers multiple engaging word games that challenge users to think creatively with words, synonyms, and language patterns. It's perfect for casual players, word enthusiasts, and language learners alike.
 
 ## Features
 
-- Interactive game menu to choose your challenge.
-- Commands: `/start`, `/play`, `/hint`, `/skip`, `/score`, `/rules`, `/stats`, `/stop`.
-- Modular game structure for easy expansion.
-- Built with Rust and Teloxide for a fast, reliable experience.
+- **Multiple Word Games**: Choose from six different word-based challenges
+- **Interactive Commands**: `/start`, `/play`, `/hint`, `/skip`, `/score`, `/rules`, `/stats`, `/stop`
+- **Dictionary Integration**: Real word validation and definitions
+- **Intelligent Responses**: Bot suggests and responds with semantically appropriate words
+- **Game State Management**: Resume games where you left off
+- **Score Tracking**: Keep track of your performance in each game
+- **Helpful Hints**: Get assistance when stuck
 
 ## Games
 
-Expect a mix of clever word-based challenges that keep you entertained and sharp. (More details in-game!)
+### Word Chain
+Link words where each new word must start with the last letter of the previous word. Build the longest chain possible!
+
+### Word Ladder
+Start with short words and gradually increase word length with each turn. Challenge yourself to reach longer and more complex words.
+
+### Last Letter Scramble
+Similar to Word Chain, but with varying difficulty levels that require words to contain specific letter patterns.
+
+### Synonym String
+Create a chain of words with similar meanings, where each word starts with the last letter of the previous word.
+
+### Alphabet Sprint
+Race through words that all start with the same letter. How many words can you find?
+
+### Forbidden Letters
+Play word chain while avoiding words that contain certain forbidden letters. A true vocabulary challenge!
 
 ## Project Structure
 
-- `src/main.rs`: Entry point for the bot.
-- `src/command.rs`: Defines bot commands.
-- `src/dictionary.rs`: Manages word validation (placeholder).
-- `src/embeddings.rs`: Handles word embeddings for synonym games (placeholder).
-- `src/handler.rs`: Processes incoming messages and callbacks.
-- `src/state.rs`: Manages game state (placeholder).
-- `src/games/`: Contains individual game modules:
-   - `alphabet_sprint.rs`
-   - `forbidden_letters.rs`
-   - `rhyme_time.rs`
-   - `scramble.rs`
-   - `word_chain.rs`
-   - `word_ladder.rs`
+- `src/main.rs`: Entry point and dispatcher configuration
+- `src/command.rs`: Bot command definitions and parsing
+- `src/dictionary.rs`: Word validation, retrieval, and definition lookup
+- `src/embeddings.rs`: Word embedding operations for finding similar words
+- `src/state.rs`: Game state management and persistence
+- `src/games/`: Individual game modules:
+   - `word_chain.rs`: Classic word chain game implementation
+   - `word_ladder.rs`: Word length ladder game
+   - `scrambled.rs`: Last letter scramble with difficulty levels
+   - `synonym_string.rs`: Chain of synonymous words
+   - `alphabet_sprint.rs`: Words starting with the same letter
+   - `forbidden_letters.rs`: Word chain avoiding certain letters
+
+## Technical Implementation
+
+The bot is built with:
+
+- **Rust**: For performance, safety, and reliability
+- **Teloxide**: Telegram bot framework for Rust
+- **Tokio**: Asynchronous runtime for handling concurrent operations
+- **Word Embeddings**: Vector representations of words to find semantically similar terms
+- **Functional Programming**: Extensive use of Rust's functional paradigms
+- **State Management**: Dialogue-based state tracking for multiple concurrent games
 
 ## Installation
 
 1. **Prerequisites**:
    - Rust (latest stable version)
    - A Telegram Bot Token from [BotFather](https://t.me/BotFather)
+   - Word embeddings database (see documentation)
 
 2. **Clone the Repository**:
    ```bash
-   git clone https://github.com/veryshyjelly/kotosume_bot.git
+   git clone https://github.com/yourusername/kotosume_bot.git
    cd kotosume_bot
    ```
 
@@ -62,56 +92,37 @@ Expect a mix of clever word-based challenges that keep you entertained and sharp
 
 ## Usage
 
-- Start the bot with `/start` to see the game menu.
-- Select a game via the inline keyboard.
-- Use commands like `/hint` or `/skip` during gameplay.
+1. Start a chat with the bot on Telegram
+2. Use `/start` to see the welcome message and game menu
+3. Use `/play` to select a game from the menu
+4. Follow the game instructions and use commands as needed:
+   - `/hint`: Get a suggestion when stuck
+   - `/skip`: Skip your turn
+   - `/score`: See current game score
+   - `/rules`: Review game rules
+   - `/stop`: End the current game
 
 ## Development
 
-- **Tech Stack**: Rust, Teloxide, Tokio
-- **Adding a New Game**:
-   1. Create a new file in `src/games/` (e.g., `new_game.rs`).
-   2. Add the module to `src/games/mod.rs`.
-   3. Update the `get_game_menu` function in `src/games/mod.rs`.
-   4. Implement game logic in the new module.
-- **Contributing**: Feel free to fork, tweak, and submit PRs!
+### Architecture
 
-## Recent Code Improvements
+The bot follows a modular architecture:
+- **Main Dispatcher**: Routes commands and messages to appropriate handlers
+- **Game Modules**: Self-contained game logic with common interfaces
+- **Dictionary Service**: Handles word validation and information retrieval
+- **Embeddings Service**: Provides semantic word relationships
+- **State Management**: Tracks game progress and user interactions
 
-The codebase has been significantly improved with the following enhancements:
+### Adding a New Game
 
-### Error Handling
-- Added custom error types for each module (DictionaryError, EmbeddingError, WordChainError)
-- Implemented proper error propagation and handling throughout the application
-- Added meaningful error messages and logging
-
-### Modularity
-- Reorganized code into smaller, more focused functions
-- Improved function documentation with clear purpose descriptions
-- Separated concerns into distinct, testable components
-
-### Robustness
-- Added proper null/None checking to prevent crashes
-- Implemented more graceful failure handling
-- Added retries for critical operations
-
-### Functional Style Improvements
-- Maintained functional programming paradigms throughout
-- Used Option/Result types more consistently
-- Improved map/filter/collect chains for data processing
-- Enhanced composition of functions
-
-### Logging
-- Added comprehensive logging throughout the application
-- Tracking errors, warnings, and informational messages
-- Monitoring game state changes and important events
-
-### Performance
-- Optimized cache operations
-- Added better validation before expensive operations
-- Improved embedding vector operations
-
-These improvements maintain the existing functional style while making the codebase more reliable, maintainable, and robust.
+1. Create a new file in `src/games/` (e.g., `new_game.rs`)
+2. Implement the game module with:
+   - Start function to initialize the game
+   - Main game handler function
+   - Helper functions for game logic
+   - Custom error type and handlers
+3. Add the module to `src/games/mod.rs`
+4. Update the game selection menu
 
 ## License
 
@@ -119,4 +130,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contact
 
-Built with ❤️ by [@veryshyjelly](github.com/veryshyjelly). Reach out via Telegram: [@veryshyjelly](https://t.me/veryshyhjelly).
+For questions, suggestions or contributions, please open an issue on the GitHub repository or reach out to the maintainers directly.
