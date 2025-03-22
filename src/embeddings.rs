@@ -66,7 +66,7 @@ where
 
 pub fn similarity(a: &str, b: &str) -> f64 {
     let embeddings = get_embeddings();
-    let a_embed_map = embeddings.get(&a.chars().next().unwrap()).unwrap(); 
+    let a_embed_map = embeddings.get(&a.chars().next().unwrap()).unwrap();
     let b_embed_map = embeddings.get(&b.chars().next().unwrap()).unwrap();
     cosine(a_embed_map.get(a).unwrap(), b_embed_map.get(b).unwrap())
 }

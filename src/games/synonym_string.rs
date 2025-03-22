@@ -1,23 +1,20 @@
-use crate::state::MyDialogue;
-use teloxide::prelude::{ChatId, Message, Requester, ResponseResult};
-use teloxide::Bot;
-use teloxide::types::Me;
-use teloxide::utils::command::BotCommands;
 use crate::command::Command;
 use crate::contains_any;
 use crate::dictionary::{get_random_word, get_word_details, WordInfo};
 use crate::embeddings::{get_similar_word, similarity};
-use crate::state::State::{Start, SynonymString, WordChain};
+use crate::state::MyDialogue;
+use crate::state::State::{Start, SynonymString };
+use teloxide::prelude::{ChatId, Message, Requester, ResponseResult};
+use teloxide::types::Me;
+use teloxide::utils::command::BotCommands;
+use teloxide::Bot;
 
 pub async fn start_synonym_string(
     chat_id: ChatId,
     bot: Bot,
     dialogue: MyDialogue,
 ) -> ResponseResult<()> {
-    bot.send_message(
-        chat_id,
-        "Synonym String starts now! Link those meanings.",
-    )
+    bot.send_message(chat_id, "Synonym String starts now! Link those meanings.")
         .await?;
 
     loop {
@@ -25,15 +22,22 @@ pub async fn start_synonym_string(
             bot.send_message(chat_id, format!("First word: {}", word.word))
                 .await?;
             word.send_message(&bot, chat_id, 0).await?;
+
+            let curr_char = word.word.chars().last().unwrap();
             bot.send_message(
                 chat_id,
                 format!(
-                    "Now give a word starting with '{}'",
-                    word.word.chars().last().unwrap()
+                    "Now give a word starting with '{}' similar to {}",
+                    curr_char, word.word
                 ),
             )
-                .await?;
-            let _ = dialogue.update(SynonymString { chain: vec![word] }).await;
+            .await?;
+            let _ = dialogue
+                .update(SynonymString {
+                    chain: vec![word],
+                    curr_char,
+                })
+                .await;
             return Ok(());
         }
     }
@@ -42,7 +46,7 @@ pub async fn start_synonym_string(
 pub async fn synonym_string(
     bot: Bot,
     dialogue: MyDialogue,
-    chain: Vec<WordInfo>,
+    (chain, curr_char): (Vec<WordInfo>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {
@@ -60,7 +64,7 @@ pub async fn synonym_string(
                 let _ = dialogue.update(Start).await;
                 bot.send_message(msg.chat.id, "Game stopped!").await?;
             }
-            Err(_) => game(text, bot, dialogue, chain, msg.chat.id).await?,
+            Err(_) => game(text, bot, dialogue, chain, curr_char, msg.chat.id).await?,
         },
         None => {}
     }
@@ -72,6 +76,7 @@ async fn game(
     bot: Bot,
     dialogue: MyDialogue,
     mut chain: Vec<WordInfo>,
+    curr_char: char,
     chat_id: ChatId,
 ) -> ResponseResult<()> {
     let words = text.split_whitespace().collect::<Vec<&str>>();
@@ -80,13 +85,16 @@ async fn game(
     } else {
         let word = words[0].to_lowercase();
 
-        let last_constraint = chain.last().unwrap().word.chars().last().unwrap();
-        if !word.starts_with(last_constraint) && similarity(&word, &chain.last().unwrap().word) > 0.8 {
+        if !word.starts_with(curr_char) && similarity(&word, &chain.last().unwrap().word) > 0.8 {
             bot.send_message(
                 chat_id,
-                format!("Give word starting with '{}'", last_constraint),
+                format!(
+                    "Give word starting with '{}' similar to {}",
+                    curr_char,
+                    chain.last().unwrap().word
+                ),
             )
-                .await?;
+            .await?;
             return Ok(());
         }
         let mut chosen_words = chain
@@ -110,8 +118,7 @@ async fn game(
                 let mut next_word_details = None;
                 while next_word_details.is_none() {
                     next_word = get_similar_word(&word, word.chars().last().unwrap(), |x| {
-                        !chosen_words.contains(&x.into())
-                        && similarity(&word, x) > 0.8
+                        !chosen_words.contains(&x.into()) && similarity(&word, x) > 0.8
                     });
                     chosen_words.push(next_word.clone());
                     next_word_details = get_word_details(&next_word).await.ok();
@@ -121,15 +128,22 @@ async fn game(
                 bot.send_message(chat_id, format!("Next word: {}", next_word))
                     .await?;
                 next_word_details.send_message(&bot, chat_id, 0).await?;
+
+                let next_char = next_word.chars().last().unwrap();
                 bot.send_message(
                     chat_id,
                     format!(
-                        "Now give a word starting with '{}'",
-                        next_word.chars().last().unwrap()
+                        "Now give a word starting with '{}' similar to {}",
+                        next_char, next_word
                     ),
                 )
-                    .await?;
-                let _ = dialogue.update(WordChain { chain }).await;
+                .await?;
+                let _ = dialogue
+                    .update(SynonymString {
+                        chain,
+                        curr_char: next_char,
+                    })
+                    .await;
             }
             Err(e) => {
                 bot.send_message(chat_id, e).await?;

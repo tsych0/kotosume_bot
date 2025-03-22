@@ -35,11 +35,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Update::filter_message()
                 .enter_dialogue::<Message, InMemStorage<State>, State>()
                 .branch(dptree::case![State::Start].endpoint(handler::message_handler))
-                .branch(dptree::case![State::WordChain { chain }].endpoint(word_chain))
+                .branch(dptree::case![State::WordChain { chain, curr_char }].endpoint(word_chain))
                 .branch(
                     dptree::case![State::ForbiddenLetters {
                         forbidden_letters,
-                        chain
+                        chain,
+                        curr_char
                     }]
                     .endpoint(forbidden_letters),
                 )
@@ -48,13 +49,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .endpoint(alphabet_sprint),
                 )
                 .branch(
-                    dptree::case![State::LastLetterScramble { level, chain }]
-                        .endpoint(last_letter_scramble),
+                    dptree::case![State::LastLetterScramble {
+                        level,
+                        chain,
+                        curr_char
+                    }]
+                    .endpoint(last_letter_scramble),
                 )
                 .branch(
-                    dptree::case![State::WordLengthLadder { max_len, chain }].endpoint(word_ladder),
+                    dptree::case![State::WordLengthLadder {
+                        curr_len,
+                        max_len,
+                        chain,
+                        curr_char
+                    }]
+                    .endpoint(word_ladder),
                 )
-                .branch(dptree::case![State::SynonymString { chain }].endpoint(synonym_string)),
+                .branch(
+                    dptree::case![State::SynonymString { chain, curr_char }]
+                        .endpoint(synonym_string),
+                ),
         )
         .branch(
             Update::filter_callback_query()

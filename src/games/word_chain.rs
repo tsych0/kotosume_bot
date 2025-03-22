@@ -26,15 +26,18 @@ pub async fn start_word_chain(
             bot.send_message(chat_id, format!("First word: {}", word.word))
                 .await?;
             word.send_message(&bot, chat_id, 0).await?;
+            let curr_char = word.word.chars().last().unwrap();
             bot.send_message(
                 chat_id,
-                format!(
-                    "Now give a word starting with '{}'",
-                    word.word.chars().last().unwrap()
-                ),
+                format!("Now give a word starting with '{}'", curr_char),
             )
             .await?;
-            let _ = dialogue.update(WordChain { chain: vec![word] }).await;
+            let _ = dialogue
+                .update(WordChain {
+                    chain: vec![word],
+                    curr_char,
+                })
+                .await;
             return Ok(());
         }
     }
@@ -43,7 +46,7 @@ pub async fn start_word_chain(
 pub async fn word_chain(
     bot: Bot,
     dialogue: MyDialogue,
-    chain: Vec<WordInfo>,
+    (chain, curr_char): (Vec<WordInfo>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {
@@ -60,7 +63,7 @@ pub async fn word_chain(
             Ok(Command::Stop) => {
                 let _ = dialogue.update(Start).await;
             }
-            Err(_) => game(text, bot, dialogue, chain, msg.chat.id).await?,
+            Err(_) => game(text, bot, dialogue, chain, curr_char, msg.chat.id).await?,
         },
         None => {}
     }
@@ -72,6 +75,7 @@ async fn game(
     bot: Bot,
     dialogue: MyDialogue,
     mut chain: Vec<WordInfo>,
+    curr_char: char,
     chat_id: ChatId,
 ) -> ResponseResult<()> {
     let words = text.split_whitespace().collect::<Vec<&str>>();
@@ -80,11 +84,10 @@ async fn game(
     } else {
         let word = words[0].to_lowercase();
 
-        let last_constraint = chain.last().unwrap().word.chars().last().unwrap();
-        if !word.starts_with(last_constraint) {
+        if !word.starts_with(curr_char) {
             bot.send_message(
                 chat_id,
-                format!("Give word starting with '{}'", last_constraint),
+                format!("Give word starting with '{}'", curr_char),
             )
             .await?;
             return Ok(());
@@ -120,15 +123,19 @@ async fn game(
                 bot.send_message(chat_id, format!("Next word: {}", next_word))
                     .await?;
                 next_word_details.send_message(&bot, chat_id, 0).await?;
+
+                let next_char = next_word.chars().last().unwrap();
                 bot.send_message(
                     chat_id,
-                    format!(
-                        "Now give a word starting with '{}'",
-                        next_word.chars().last().unwrap()
-                    ),
+                    format!("Now give a word starting with '{}'", next_char),
                 )
                 .await?;
-                let _ = dialogue.update(WordChain { chain }).await;
+                let _ = dialogue
+                    .update(WordChain {
+                        chain,
+                        curr_char: next_char,
+                    })
+                    .await;
             }
             Err(e) => {
                 bot.send_message(chat_id, e).await?;

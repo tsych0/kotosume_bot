@@ -31,12 +31,10 @@ pub async fn start_forbidden_letters(
             bot.send_message(chat_id, format!("First word: {}", word.word))
                 .await?;
             word.send_message(&bot, chat_id, 0).await?;
+            let next_char = word.word.chars().last().unwrap();
             bot.send_message(
                 chat_id,
-                format!(
-                    "Now give a word starting with '{}'",
-                    word.word.chars().last().unwrap()
-                ),
+                format!("Now give a word starting with '{}'", next_char),
             )
             .await?;
 
@@ -44,6 +42,7 @@ pub async fn start_forbidden_letters(
                 .update(ForbiddenLetters {
                     chain: vec![word],
                     forbidden_letters,
+                    curr_char: next_char,
                 })
                 .await;
             return Ok(());
@@ -54,7 +53,7 @@ pub async fn start_forbidden_letters(
 pub async fn forbidden_letters(
     bot: Bot,
     dialogue: MyDialogue,
-    (chain, forbidden_letters): (Vec<WordInfo>, Vec<char>),
+    (chain, forbidden_letters, curr_char): (Vec<WordInfo>, Vec<char>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {
@@ -71,7 +70,18 @@ pub async fn forbidden_letters(
             Ok(Command::Stop) => {
                 let _ = dialogue.update(Start).await;
             }
-            Err(_) => game(text, bot, dialogue, chain, forbidden_letters, msg.chat.id).await?,
+            Err(_) => {
+                game(
+                    text,
+                    bot,
+                    dialogue,
+                    chain,
+                    forbidden_letters,
+                    curr_char,
+                    msg.chat.id,
+                )
+                .await?
+            }
         },
         None => {}
     }
@@ -84,6 +94,7 @@ async fn game(
     dialogue: MyDialogue,
     mut chain: Vec<WordInfo>,
     forbidden_letters: Vec<char>,
+    curr_char: char,
     chat_id: ChatId,
 ) -> ResponseResult<()> {
     let words = text.split_whitespace().collect::<Vec<&str>>();
@@ -92,13 +103,9 @@ async fn game(
     } else {
         let word = words[0].to_lowercase();
 
-        let last_constraint = chain.last().unwrap().word.chars().last().unwrap();
-        if !word.starts_with(last_constraint) && !word.contains(&forbidden_letters[..]) {
-            bot.send_message(
-                chat_id,
-                format!("Give word starting with '{}'", last_constraint),
-            )
-            .await?;
+        if !word.starts_with(curr_char) && !word.contains(&forbidden_letters[..]) {
+            bot.send_message(chat_id, format!("Give word starting with '{}'", curr_char))
+                .await?;
             return Ok(());
         }
         let mut chosen_words = chain
@@ -129,21 +136,22 @@ async fn game(
                 }
                 let next_word_details = next_word_details.unwrap();
                 chain.push(next_word_details.clone());
+
                 bot.send_message(chat_id, format!("Next word: {}", next_word))
                     .await?;
                 next_word_details.send_message(&bot, chat_id, 0).await?;
+
+                let next_char = next_word.chars().last().unwrap();
                 bot.send_message(
                     chat_id,
-                    format!(
-                        "Now give a word starting with '{}'",
-                        next_word.chars().last().unwrap()
-                    ),
+                    format!("Now give a word starting with '{}'", next_char),
                 )
                 .await?;
                 let _ = dialogue
                     .update(ForbiddenLetters {
                         chain,
                         forbidden_letters,
+                        curr_char: next_char,
                     })
                     .await;
             }

@@ -3,7 +3,7 @@ use teloxide::dispatching::dialogue::InMemStorage;
 use teloxide::prelude::Dialogue;
 
 pub type MyDialogue = Dialogue<State, InMemStorage<State>>;
-pub type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+// pub type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Clone, Default)]
 pub enum State {
@@ -11,6 +11,7 @@ pub enum State {
     Start,
     WordChain {
         chain: Vec<WordInfo>,
+        curr_char: char,
     },
     AlphabetSprint {
         alphabet: char,
@@ -19,16 +20,21 @@ pub enum State {
     LastLetterScramble {
         level: u8,
         chain: Vec<WordInfo>,
+        curr_char: char,
     },
     SynonymString {
         chain: Vec<WordInfo>,
+        curr_char: char,
     },
     WordLengthLadder {
+        curr_len: u8,
         max_len: u8,
         chain: Vec<WordInfo>,
+        curr_char: char,
     },
     ForbiddenLetters {
         forbidden_letters: Vec<char>,
         chain: Vec<WordInfo>,
+        curr_char: char,
     },
 }
