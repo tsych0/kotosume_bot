@@ -113,7 +113,7 @@ pub async fn start_alphabet_sprint(
 pub async fn alphabet_sprint(
     bot: Bot,
     dialogue: MyDialogue,
-    (words, alphabet): (Vec<WordInfo>, char),
+    (alphabet, words): (char, Vec<WordInfo>),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {

@@ -130,7 +130,7 @@ pub async fn start_forbidden_letters(
 pub async fn forbidden_letters(
     bot: Bot,
     dialogue: MyDialogue,
-    (chain, forbidden_letters, curr_char): (Vec<WordInfo>, Vec<char>, char),
+    (forbidden_letters, chain, curr_char): (Vec<char>, Vec<WordInfo>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {

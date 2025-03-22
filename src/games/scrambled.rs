@@ -112,30 +112,10 @@ pub async fn start_last_letter_scramble(
 pub async fn last_letter_scramble(
     bot: Bot,
     dialogue: MyDialogue,
-    (chain, level): (Vec<WordInfo>, u8),
+    (level, chain, curr_char): (u8, Vec<WordInfo>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {
-    let curr_char = match chain.last() {
-        Some(word) => match word.word.chars().last() {
-            Some(c) => c,
-            None => {
-                error!("Last word '{}' has no characters", word.word);
-                bot.send_message(msg.chat.id, "Game error - please restart")
-                    .await?;
-                let _ = dialogue.update(Start).await;
-                return Ok(());
-            }
-        },
-        None => {
-            error!("Chain is empty in last_letter_scramble");
-            bot.send_message(msg.chat.id, "Game error - please restart")
-                .await?;
-            let _ = dialogue.update(Start).await;
-            return Ok(());
-        }
-    };
-
     match msg.text() {
         Some(text) => match BotCommands::parse(text, me.username()) {
             Ok(Command::Start) | Ok(Command::Play) | Ok(Command::Stats) => {

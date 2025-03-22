@@ -112,7 +112,7 @@ pub async fn start_word_ladder(
 pub async fn word_ladder(
     bot: Bot,
     dialogue: MyDialogue,
-    (chain, curr_len, max_len, curr_char): (Vec<WordInfo>, u8, u8, char),
+    (curr_len, max_len, chain, curr_char): (u8, u8, Vec<WordInfo>, char),
     msg: Message,
     me: Me,
 ) -> ResponseResult<()> {
