@@ -56,7 +56,7 @@ pub async fn start_synonym_string(
     // Try to get a random word to start the game
     for _ in 0..3 {
         // Try up to 3 times
-        match get_random_word(|_| true).await {
+        match get_random_word(|_| true, None).await {
             Ok(word) => {
                 let curr_char = match word.word.chars().last() {
                     Some(c) => c,
@@ -407,11 +407,10 @@ async fn provide_hint(
         .collect::<Vec<String>>();
 
     // Get a random word starting with the current character and similar to previous word
-    match get_random_word(|w| {
-        w.starts_with(curr_char)
-            && similarity(w, prev_word).unwrap_or(0.0) > 0.8
-            && !used_stems.contains(&w.to_string())
-    })
+    match get_random_word(
+        |w| similarity(w, prev_word).unwrap_or(0.0) > 0.8 && !used_stems.contains(&w.to_string()),
+        Some(curr_char),
+    )
     .await
     {
         Ok(hint) => {
@@ -467,11 +466,10 @@ async fn skip_turn(
     };
 
     // Try to get a word for the bot
-    match get_random_word(|w| {
-        w.starts_with(curr_char)
-            && similarity(w, prev_word).unwrap_or(0.0) > 0.8
-            && !used_stems.contains(&w.to_string())
-    })
+    match get_random_word(
+        |w| similarity(w, prev_word).unwrap_or(0.0) > 0.8 && !used_stems.contains(&w.to_string()),
+        Some(curr_char),
+    )
     .await
     {
         Ok(word) => {

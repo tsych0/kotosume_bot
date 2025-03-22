@@ -60,7 +60,7 @@ pub async fn start_word_chain(
     // Try to get a random word to start the game
     for _ in 0..3 {
         // Try up to 3 times
-        match get_random_word(|_| true).await {
+        match get_random_word(|_| true, None).await {
             Ok(word) => {
                 info!("Word Chain started with word: {}", word.word);
 
@@ -354,9 +354,7 @@ async fn provide_hint(
         .collect::<Vec<String>>();
 
     // Get a random word starting with the current character (not used before)
-    match get_random_word(|w| w.starts_with(curr_char) && !used_stems.contains(&w.to_string()))
-        .await
-    {
+    match get_random_word(|w| !used_stems.contains(&w.to_string()), Some(curr_char)).await {
         Ok(hint) => {
             bot.send_message(
                 chat_id,
@@ -401,9 +399,7 @@ async fn skip_turn(
         .collect::<Vec<String>>();
 
     // Try to get a word for the bot
-    match get_random_word(|w| w.starts_with(curr_char) && !used_stems.contains(&w.to_string()))
-        .await
-    {
+    match get_random_word(|w| !used_stems.contains(&w.to_string()), Some(curr_char)).await {
         Ok(word) => {
             bot.send_message(chat_id, format!("My word: {}", word.word))
                 .await?;

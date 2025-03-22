@@ -56,7 +56,7 @@ pub async fn start_word_ladder(
     // Try to get a random word to start the game
     for _ in 0..3 {
         // Try up to 3 times
-        match get_random_word(|w| w.len() == 2).await {
+        match get_random_word(|w| w.len() == 2, None).await {
             Ok(word) => {
                 let curr_char = match word.word.chars().last() {
                     Some(c) => c,
@@ -402,7 +402,7 @@ async fn provide_hint(
     info!("Providing hint for chat {}", chat_id);
 
     // Get a random word starting with the current character and with correct length
-    match get_random_word(|w| w.starts_with(curr_char) && w.len() == curr_len as usize).await {
+    match get_random_word(|w| w.len() == curr_len as usize, Some(curr_char)).await {
         Ok(hint) => {
             bot.send_message(
                 chat_id,
@@ -446,7 +446,7 @@ async fn skip_turn(
         .collect::<Vec<String>>();
 
     // Try to get a word for the bot
-    match get_random_word(|w| w.starts_with(curr_char) && w.len() == curr_len as usize).await {
+    match get_random_word(|w| w.len() == curr_len as usize, Some(curr_char)).await {
         Ok(word) => {
             bot.send_message(chat_id, format!("My word: {}", word.word))
                 .await?;

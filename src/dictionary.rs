@@ -200,21 +200,27 @@ fn get_client() -> &'static MerriamWebsterClient {
     CLIENT.get_or_init(|| init_client())
 }
 
-/// Gets a random word that satisfies the given predicate
-pub async fn get_random_word<P>(predicate: P) -> Result<WordInfo, DictionaryError>
+/// Gets a random word that satisfies the given predicate, optionally starting with a specific character
+pub async fn get_random_word<P>(
+    predicate: P,
+    start_char: Option<char>,
+) -> Result<WordInfo, DictionaryError>
 where
     P: Fn(&str) -> bool,
 {
-    let random_char = ('a'..='z').choose(&mut rand::rng()).ok_or_else(|| {
-        DictionaryError::ApiError("Failed to generate random character".to_string())
-    })?;
+    let char = match start_char {
+        Some(c) => c,
+        None => ('a'..='z').choose(&mut rand::rng()).ok_or_else(|| {
+            DictionaryError::ApiError("Failed to generate random character".to_string())
+        })?,
+    };
 
     let embeddings = get_embeddings()
         .map_err(|e| DictionaryError::ApiError(format!("Failed to get embeddings: {}", e)))?;
 
-    let char_map = embeddings.get(&random_char).ok_or_else(|| {
-        DictionaryError::NotFound(format!("No embeddings for letter '{}'", random_char))
-    })?;
+    let char_map = embeddings
+        .get(&char)
+        .ok_or_else(|| DictionaryError::NotFound(format!("No embeddings for letter '{}'", char)))?;
 
     let word = char_map
         .keys()

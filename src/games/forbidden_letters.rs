@@ -66,7 +66,7 @@ pub async fn start_forbidden_letters(
     // Try to get a random word to start the game
     for _ in 0..3 {
         // Try up to 3 times
-        match get_random_word(|w| !contains_forbidden_chars(w, &forbidden_letters)).await {
+        match get_random_word(|w| !contains_forbidden_chars(w, &forbidden_letters), None).await {
             Ok(word) => {
                 let next_char = match word.word.chars().last() {
                     Some(c) => c,
@@ -405,9 +405,10 @@ async fn provide_hint(
     info!("Providing hint for chat {}", chat_id);
 
     // Get a random word starting with the current character without forbidden letters
-    match get_random_word(|w| {
-        w.starts_with(curr_char) && !contains_forbidden_chars(w, forbidden_letters)
-    })
+    match get_random_word(
+        |w| !contains_forbidden_chars(w, forbidden_letters),
+        Some(curr_char),
+    )
     .await
     {
         Ok(hint) => {
@@ -454,11 +455,12 @@ async fn skip_turn(
         .collect::<Vec<String>>();
 
     // Try to get a word for the bot
-    match get_random_word(|w| {
-        w.starts_with(curr_char)
-            && !contains_forbidden_chars(w, &forbidden_letters)
-            && !used_stems.contains(&w.to_string())
-    })
+    match get_random_word(
+        |w| {
+            !contains_forbidden_chars(w, &forbidden_letters) && !used_stems.contains(&w.to_string())
+        },
+        Some(curr_char),
+    )
     .await
     {
         Ok(word) => {
