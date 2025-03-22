@@ -308,7 +308,7 @@ async fn get_bot_response(
 
     // Get a similar word that hasn't been used
     let mut attempts = 0;
-    const MAX_ATTEMPTS: usize = 3;
+    const MAX_ATTEMPTS: usize = 5;
 
     while attempts < MAX_ATTEMPTS {
         attempts += 1;
