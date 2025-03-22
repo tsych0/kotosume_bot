@@ -11,7 +11,7 @@ use log::{error, info, warn};
 use rand::prelude::IndexedRandom;
 use teloxide::payloads::SendMessageSetters;
 use teloxide::prelude::{CallbackQuery, Message, Requester, ResponseResult};
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me};
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, Me, ParseMode};
 use teloxide::utils::command::BotCommands;
 use teloxide::Bot;
 
@@ -128,7 +128,7 @@ async fn handle_play_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> Res
         ("forbidden_letters", "Forbidden Letters"),
     ];
 
-    let &(game_id, game_name) = games.choose(&mut rand::rng()).unwrap();
+    let &(_game_id, game_name) = games.choose(&mut rand::rng()).unwrap();
     bot.send_message(
         chat_id,
         format!("I've selected a random game for you: {}", game_name),
@@ -156,7 +156,7 @@ async fn handle_rules_command(bot: &Bot, chat_id: teloxide::types::ChatId) -> Re
         📏 *Word Length Ladder*: Start with short words and increase length each turn\n\
         ❌ *Forbidden Letters*: Word chain while avoiding certain letters\n\n\
         Use /start to select a game, then use /rules in-game for specific rules.",
-    ).await?;
+    ).parse_mode(ParseMode::MarkdownV2).await?;
 
     Ok(())
 }
