@@ -298,6 +298,8 @@ async fn get_bot_response(
     player_word: &str,
     used_words: &[String],
 ) -> Result<WordInfo, WordChainError> {
+    let mut used_words = used_words.to_vec();
+
     // Get the last character of the player's word
     let last_char = player_word
         .chars()
@@ -320,7 +322,13 @@ async fn get_bot_response(
             Ok(word) => {
                 // Try to get details for this word
                 match get_word_details(&word).await {
-                    Ok(details) => return Ok(details),
+                    Ok(details) => {
+                        if contains_any(&used_words, &details.stems) {
+                            used_words.extend(details.stems.clone());
+                            continue;
+                        }
+                        return Ok(details);
+                    }
                     Err(_) => continue, // Try another word
                 }
             }

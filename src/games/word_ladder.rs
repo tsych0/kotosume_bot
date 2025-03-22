@@ -348,6 +348,8 @@ async fn get_bot_response(
     used_words: &[String],
     target_length: usize,
 ) -> Result<WordInfo, WordLadderError> {
+    let mut used_words = used_words.to_vec();
+
     let last_char = match player_word.chars().last() {
         Some(c) => c,
         None => {
@@ -359,7 +361,7 @@ async fn get_bot_response(
 
     // Get a similar word that hasn't been used
     let mut attempts = 0;
-    const MAX_ATTEMPTS: usize = 3;
+    const MAX_ATTEMPTS: usize = 5;
 
     while attempts < MAX_ATTEMPTS {
         attempts += 1;
@@ -373,7 +375,13 @@ async fn get_bot_response(
             Ok(word) => {
                 // Try to get details for this word
                 match get_word_details(&word).await {
-                    Ok(details) => return Ok(details),
+                    Ok(details) => {
+                        if contains_any(&used_words, &details.stems) {
+                            used_words.extend(details.stems.clone());
+                            continue;
+                        }
+                        return Ok(details);
+                    }
                     Err(_) => continue, // Try another word
                 }
             }

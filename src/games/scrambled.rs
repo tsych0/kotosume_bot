@@ -341,6 +341,7 @@ async fn get_bot_response(
     used_words: &[String],
     level: u8,
 ) -> Result<WordInfo, ScrambledError> {
+    let mut used_words = used_words.to_vec();
     let last_char = match player_word.chars().last() {
         Some(c) => c,
         None => {
@@ -367,7 +368,13 @@ async fn get_bot_response(
             Ok(word) => {
                 // Try to get details for this word
                 match get_word_details(&word).await {
-                    Ok(details) => return Ok(details),
+                    Ok(details) => {
+                        if contains_any(&used_words, &details.stems) {
+                            used_words.extend(details.stems.clone());
+                            continue;
+                        }
+                        return Ok(details);
+                    }
                     Err(_) => continue, // Try another word
                 }
             }

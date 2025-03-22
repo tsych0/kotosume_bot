@@ -331,6 +331,8 @@ async fn get_bot_response(
     player_word: &str,
     used_words: &[String],
 ) -> Result<WordInfo, SynonymError> {
+    let mut used_words = used_words.to_vec();
+
     let last_char = match player_word.chars().last() {
         Some(c) => c,
         None => {
@@ -362,6 +364,11 @@ async fn get_bot_response(
                             "Bot found similar word '{}' (similarity: {:.2})",
                             word, sim_score
                         );
+
+                        if contains_any(&used_words, &details.stems) {
+                            used_words.extend(details.stems.clone());
+                            continue;
+                        }
                         return Ok(details);
                     }
                     Err(_) => continue, // Try another word
