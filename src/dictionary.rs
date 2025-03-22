@@ -5,6 +5,7 @@ use moka::future::Cache;
 use rand::prelude::IteratorRandom;
 use rand::rng;
 use std::env;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::sync::OnceLock;
@@ -16,12 +17,41 @@ use teloxide::types::ParseMode::MarkdownV2;
 use teloxide::types::{ChatId, InlineKeyboardButton, InlineKeyboardMarkup, MessageId};
 use teloxide::Bot;
 
-#[derive(Encode, Decode, Clone)]
+/// Custom error type for dictionary operations
+#[derive(Debug)]
+pub enum DictionaryError {
+    NotFound(String),
+    ApiError(String),
+    CacheError(String),
+    IoError(std::io::Error),
+}
+
+impl fmt::Display for DictionaryError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DictionaryError::NotFound(word) => write!(f, "Word '{}' not found", word),
+            DictionaryError::ApiError(msg) => write!(f, "API error: {}", msg),
+            DictionaryError::CacheError(msg) => write!(f, "Cache error: {}", msg),
+            DictionaryError::IoError(e) => write!(f, "I/O error: {}", e),
+        }
+    }
+}
+
+impl From<std::io::Error> for DictionaryError {
+    fn from(error: std::io::Error) -> Self {
+        DictionaryError::IoError(error)
+    }
+}
+
+/// Word information including definitions and stems
+#[derive(Encode, Decode, Clone, Debug)]
 pub struct WordInfo {
     pub word: String,
     pub stems: Vec<String>,
     pub defs: Vec<Def>,
 }
+
+/// Escapes special characters for Markdown formatting
 fn escape(text: &str) -> String {
     let special_chars = "_*[]()~`>#+-=|{}.!"; // Characters to escape
     text.chars()
@@ -36,6 +66,7 @@ fn escape(text: &str) -> String {
 }
 
 impl WordInfo {
+    /// Prepares a formatted message with keyboard for display
     pub fn get_message(&self, def_idx: usize) -> (String, InlineKeyboardMarkup) {
         let def = &self.defs[def_idx];
         let message = format!(
@@ -71,6 +102,7 @@ impl WordInfo {
         (message, keyboard)
     }
 
+    /// Sends a new message with word information
     pub async fn send_message(
         &self,
         bot: &Bot,
@@ -86,6 +118,7 @@ impl WordInfo {
         Ok(())
     }
 
+    /// Edits an existing message with word information
     pub async fn edit_message(
         &self,
         bot: &Bot,
@@ -104,7 +137,8 @@ impl WordInfo {
     }
 }
 
-#[derive(Encode, Decode, Clone)]
+/// Word definition containing the functional label and definitions
+#[derive(Encode, Decode, Clone, Debug)]
 pub struct Def {
     pub definitions: Vec<String>,
     pub functional_label: String,
@@ -115,12 +149,14 @@ const CACHE_PATH: &str = "cache.bin";
 static CACHE: OnceLock<Cache<String, WordInfo>> = OnceLock::new();
 static CLIENT: OnceLock<MerriamWebsterClient> = OnceLock::new();
 
+/// Cache entry for serialization/deserialization
 #[derive(Encode, Decode)]
 struct CacheEntry {
     key: String,
     value: WordInfo,
 }
 
+/// Initializes the word cache from disk if available
 pub async fn init_cache() {
     let cache: Cache<String, WordInfo> = Cache::new(CACHE_SIZE);
 
@@ -128,82 +164,116 @@ pub async fn init_cache() {
         let reader = BufReader::new(file);
         let entries_result: Result<Vec<CacheEntry>, _> =
             bincode::decode_from_reader(reader, bincode::config::standard());
-        if let Ok(entries) = entries_result {
-            for entry in entries {
-                cache.insert(entry.key, entry.value).await;
+
+        match entries_result {
+            Ok(entries) => {
+                log::info!("Loaded {} entries from cache", entries.len());
+                for entry in entries {
+                    cache.insert(entry.key, entry.value).await;
+                }
             }
+            Err(e) => log::error!("Failed to load cache: {}", e),
         }
+    } else {
+        log::info!("No cache file found, starting with empty cache");
     }
 
     let _ = CACHE.set(cache);
 }
 
+/// Gets a reference to the global word cache
 pub fn get_cache() -> &'static Cache<String, WordInfo> {
-    CACHE.get().unwrap()
+    CACHE
+        .get()
+        .expect("Cache not initialized. Call init_cache() first")
 }
 
+/// Initializes the Merriam-Webster API client
 fn init_client() -> MerriamWebsterClient {
-    let api_key = env::var("MERRIAM_WEBSTER_API_KEY").unwrap();
+    let api_key = env::var("MERRIAM_WEBSTER_API_KEY")
+        .expect("MERRIAM_WEBSTER_API_KEY environment variable not set");
     MerriamWebsterClient::new(api_key.into())
 }
 
+/// Gets a reference to the global Merriam-Webster API client
 fn get_client() -> &'static MerriamWebsterClient {
     CLIENT.get_or_init(|| init_client())
 }
 
-pub async fn get_random_word<P>(predicate: P) -> Result<WordInfo, String>
+/// Gets a random word that satisfies the given predicate
+pub async fn get_random_word<P>(predicate: P) -> Result<WordInfo, DictionaryError>
 where
     P: Fn(&str) -> bool,
 {
-    let random_char = ('a'..='z').choose(&mut rand::rng()).unwrap();
-    let embeddings = get_embeddings().get(&random_char).unwrap();
-    let word = embeddings
+    let random_char = ('a'..='z').choose(&mut rand::rng()).ok_or_else(|| {
+        DictionaryError::ApiError("Failed to generate random character".to_string())
+    })?;
+
+    let embeddings = get_embeddings()
+        .map_err(|e| DictionaryError::ApiError(format!("Failed to get embeddings: {}", e)))?;
+
+    let char_map = embeddings.get(&random_char).ok_or_else(|| {
+        DictionaryError::NotFound(format!("No embeddings for letter '{}'", random_char))
+    })?;
+
+    let word = char_map
         .keys()
         .filter(|k| predicate(k))
         .choose(&mut rng())
-        .ok_or("cannot choose word")?;
+        .ok_or_else(|| DictionaryError::NotFound("No matching word found".to_string()))?;
+
     get_word_details(word).await
 }
 
-pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
+/// Gets detailed information about a word
+pub async fn get_word_details(word: &str) -> Result<WordInfo, DictionaryError> {
     let cache = get_cache();
-    if cache.contains_key(word) {
-        return cache
-            .get(word)
-            .await
-            .clone()
-            .ok_or("word not found in cache".into());
+
+    // Check cache first for efficiency
+    if let Some(cached_word) = cache.get(word).await {
+        return Ok(cached_word);
     }
 
+    // Validate word existence
     if !is_valid_word(word) {
-        return Err(format!("{} is not in our wordlist.", word).into());
+        return Err(DictionaryError::NotFound(format!(
+            "'{}' is not in our wordlist",
+            word
+        )));
     }
 
-    println!("getting word details of word {}", word);
+    log::info!("Fetching details for word: {}", word);
+
+    // Call API for word details
     let client = get_client();
     let def = client
         .collegiate_definition(word.into())
         .await
-        .map_err(|_| format!("No definition found for {word}"))?;
+        .map_err(|_| DictionaryError::ApiError(format!("No definition found for '{}'", word)))?;
 
+    // Process definitions
     let defs = def
         .iter()
-        .map(|d| {
-            d.shortdef
-                .as_ref()
-                .ok_or(format!("Definition not found for {word}"))
-                .and_then(|s| Ok(s.iter().map(|s| s.to_string()).collect::<Vec<_>>()))
-                .and_then(|s| {
-                    Ok(Def {
-                        functional_label: d.fl.clone().unwrap_or(String::new()),
-                        definitions: s,
-                    })
-                })
+        .filter_map(|d| {
+            let definitions = d.shortdef.as_ref()?;
+            Some(Def {
+                functional_label: d.fl.clone().unwrap_or_default(),
+                definitions: definitions.iter().map(|s| s.to_string()).collect(),
+            })
         })
-        .collect::<Result<Vec<Def>, String>>()?;
+        .collect::<Vec<Def>>();
 
-    let stems = def.iter().map(|d| d.meta.stems.clone()).flatten().collect();
+    if defs.is_empty() {
+        return Err(DictionaryError::NotFound(format!(
+            "No usable definitions for '{}'",
+            word
+        )));
+    }
 
+    // Collect word stems
+    let stems = def.iter().flat_map(|d| d.meta.stems.clone()).collect();
+
+    // Create and cache the word info
     let word_info = WordInfo {
         word: word.into(),
         stems,
@@ -215,9 +285,16 @@ pub async fn get_word_details(word: &str) -> Result<WordInfo, String> {
     Ok(word_info)
 }
 
-pub fn save_cache(cache: &'static Cache<String, WordInfo>, file_path: &str) -> std::io::Result<()> {
+/// Saves the word cache to disk
+pub fn save_cache(
+    cache: &'static Cache<String, WordInfo>,
+    file_path: &str,
+) -> Result<(), DictionaryError> {
+    log::info!("Saving cache to {}", file_path);
+
     let file = File::create(file_path)?;
     let mut writer = BufWriter::new(file);
+
     let data = cache
         .iter()
         .map(|(k, v)| CacheEntry {
@@ -225,6 +302,10 @@ pub fn save_cache(cache: &'static Cache<String, WordInfo>, file_path: &str) -> s
             value: v.clone(),
         })
         .collect::<Vec<_>>();
-    bincode::encode_into_std_write(&data, &mut writer, bincode::config::standard()).unwrap();
+
+    bincode::encode_into_std_write(&data, &mut writer, bincode::config::standard())
+        .map_err(|e| DictionaryError::CacheError(format!("Failed to encode cache: {}", e)))?;
+
+    log::info!("Cache saved with {} entries", data.len());
     Ok(())
 }
