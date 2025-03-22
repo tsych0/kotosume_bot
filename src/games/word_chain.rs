@@ -145,6 +145,21 @@ pub async fn word_chain(
             }
             Ok(Command::Stop) => {
                 info!("Player stopped Word Chain game in chat {}", msg.chat.id);
+
+                // Show final score/summary
+                let player_words = chain.len() / 2;
+                let bot_words = chain.len() - player_words;
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nWord chain: {}",
+                        player_words,
+                        bot_words,
+                        chain.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(" → ")
+                    ),
+                ).await?;
+
                 bot.send_message(msg.chat.id, "Word Chain game stopped. Thanks for playing!")
                     .await?;
                 let _ = dialogue.update(Start).await;

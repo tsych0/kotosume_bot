@@ -168,6 +168,22 @@ pub async fn forbidden_letters(
                     "Player stopped Forbidden Letters game in chat {}",
                     msg.chat.id
                 );
+
+                // Show final score/summary
+                let player_words = chain.len() / 2;
+                let bot_words = chain.len() - player_words;
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nForbidden letters: {:?}\n\nWords played: {}",
+                        player_words,
+                        bot_words,
+                        forbidden_letters,
+                        chain.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(", ")
+                    ),
+                ).await?;
+
                 bot.send_message(
                     msg.chat.id,
                     "Forbidden Letters game stopped. Thanks for playing!",

@@ -162,6 +162,28 @@ pub async fn last_letter_scramble(
                     "Player stopped Last Letter Scramble game in chat {}",
                     msg.chat.id
                 );
+
+                // Show final score/summary
+                let player_words = chain.len() / 2;
+                let bot_words = chain.len() - player_words;
+                let level_desc = match level {
+                    1 => "Easy",
+                    2 => "Medium",
+                    3 => "Hard",
+                    _ => "Custom",
+                };
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nDifficulty level: {}\n\nWords played: {}",
+                        player_words,
+                        bot_words,
+                        level_desc,
+                        chain.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(", ")
+                    ),
+                ).await?;
+
                 bot.send_message(
                     msg.chat.id,
                     "Last Letter Scramble game stopped. Thanks for playing!",

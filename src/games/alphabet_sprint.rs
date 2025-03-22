@@ -143,6 +143,21 @@ pub async fn alphabet_sprint(
                     "Player stopped Alphabet Sprint game in chat {}",
                     msg.chat.id
                 );
+
+                // Show final score
+                let player_words = words.len() / 2;
+                let bot_words = words.len() - player_words;
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nWords played: {}",
+                        player_words,
+                        bot_words,
+                        words.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(", ")
+                    ),
+                ).await?;
+
                 bot.send_message(
                     msg.chat.id,
                     "Alphabet Sprint game stopped. Thanks for playing!",

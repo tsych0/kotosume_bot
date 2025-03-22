@@ -148,6 +148,27 @@ pub async fn word_ladder(
             }
             Ok(Command::Stop) => {
                 info!("Player stopped Word Ladder game in chat {}", msg.chat.id);
+
+                // Show final score/summary
+                let player_words = chain.len() / 2;
+                let bot_words = chain.len() - player_words;
+                let max_length_reached = if chain.is_empty() {
+                    0
+                } else {
+                    chain.last().unwrap().word.len()
+                };
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nMax word length reached: {}\n\nWords played: {}",
+                        player_words,
+                        bot_words,
+                        max_length_reached,
+                        chain.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(", ")
+                    ),
+                ).await?;
+
                 bot.send_message(msg.chat.id, "Word Ladder game stopped. Thanks for playing!")
                     .await?;
                 let _ = dialogue.update(Start).await;

@@ -140,6 +140,21 @@ pub async fn synonym_string(
             }
             Ok(Command::Stop) => {
                 info!("Player stopped Synonym String game in chat {}", msg.chat.id);
+
+                // Show final score/summary
+                let player_words = chain.len() / 2;
+                let bot_words = chain.len() - player_words;
+
+                bot.send_message(
+                    msg.chat.id,
+                    format!(
+                        "Game finished! Final score:\nYou: {} words\nBot: {} words\n\nSynonym chain: {}",
+                        player_words,
+                        bot_words,
+                        chain.iter().map(|w| w.word.clone()).collect::<Vec<String>>().join(" → ")
+                    ),
+                ).await?;
+
                 bot.send_message(
                     msg.chat.id,
                     "Synonym String game stopped. Thanks for playing!",
