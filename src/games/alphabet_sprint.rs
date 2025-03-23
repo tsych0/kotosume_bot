@@ -316,7 +316,10 @@ async fn get_bot_response(
                         }
                         return Ok(details);
                     }
-                    Err(_) => continue, // Try another word
+                    Err(_) => {
+                        used_words.push(word);
+                        continue
+                    }, // Try another word
                 }
             }
             Err(e) => {
